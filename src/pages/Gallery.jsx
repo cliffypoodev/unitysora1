@@ -56,7 +56,7 @@ export default function Gallery() {
               </Button>
             </Link>
             <a href="https://github.com/hpcaitech/Open-Sora" target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" className="gap-2 hidden">Repository</Button>
+              
             </a>
           </div>
         </div>
