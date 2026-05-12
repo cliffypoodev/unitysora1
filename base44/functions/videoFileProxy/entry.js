@@ -40,17 +40,33 @@ function isAllowedVideoUrl(url) {
   }
 }
 
-async function readRequestUrl(request) {
+function arrayBufferToBase64(arrayBuffer) {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(arrayBuffer).toString("base64");
+  }
+
+  let binary = "";
+  const bytes = new Uint8Array(arrayBuffer);
+  const chunkSize = 0x8000;
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+
+  return btoa(binary);
+}
+
+async function readRequestBody(request) {
+  if (request.method !== "POST") return {};
+  return request.json().catch(() => ({}));
+}
+
+async function readRequestUrl(request, body) {
   const currentUrl = new URL(request.url);
   const queryUrl = currentUrl.searchParams.get("url");
   if (queryUrl) return queryUrl;
-
-  if (request.method === "POST") {
-    const body = await request.json().catch(() => ({}));
-    return body.url || body.video_url || body.assetUrl || "";
-  }
-
-  return "";
+  return body.url || body.video_url || body.assetUrl || "";
 }
 
 export default async function handler(request) {
@@ -62,7 +78,9 @@ export default async function handler(request) {
     return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
   }
 
-  const videoUrl = await readRequestUrl(request);
+  const body = await readRequestBody(request);
+  const videoUrl = await readRequestUrl(request, body);
+  const returnJson = request.method === "POST" || body.return_json === true || body.return_base64 === true;
 
   if (!videoUrl) {
     return jsonResponse({ ok: false, error: "Missing video URL." }, 400);
@@ -94,6 +112,17 @@ export default async function handler(request) {
     const extension = getExtension(videoUrl, upstreamType);
     const mimeType = getMimeType(extension, upstreamType);
     const filename = `unitysora-video.${extension}`;
+
+    if (returnJson) {
+      return jsonResponse({
+        ok: true,
+        filename,
+        mime_type: mimeType,
+        extension,
+        size_bytes: arrayBuffer.byteLength,
+        base64: arrayBufferToBase64(arrayBuffer),
+      });
+    }
 
     return new Response(arrayBuffer, {
       status: 200,
