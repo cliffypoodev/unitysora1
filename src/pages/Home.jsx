@@ -55,7 +55,7 @@ export default function Home() {
               UnitySora
             </h1>
             <p className="text-xl text-background/80 mb-3 max-w-2xl mx-auto leading-relaxed">
-              Democratizing Efficient Video Production for All
+              AI Video Generation
             </p>
             <p className="text-sm text-background/60 mb-8 max-w-xl mx-auto">
               An open-source initiative to make high-quality AI video generation accessible to everyone.
