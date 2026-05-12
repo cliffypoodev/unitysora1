@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Menu, Wand2, Images, BookOpen, X } from "lucide-react";
 
 const NAV = [
-  { label: "Generate", to: "/generate", icon: Wand2 },
-  { label: "Gallery", to: "/gallery", icon: Images },
-  { label: "Docs", to: "/docs", icon: BookOpen },
-];
+{ label: "Generate", to: "/generate", icon: Wand2 },
+{ label: "Gallery", to: "/gallery", icon: Images },
+{ label: "Docs", to: "/docs", icon: BookOpen }];
+
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -19,30 +19,30 @@ export default function Header() {
       <div className="max-w-[1280px] mx-auto px-4 h-14 flex items-center gap-4">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 flex-shrink-0 mr-4">
-          <img
-            src="https://media.base44.com/images/public/6a036e3dc4cd55282c5c04ac/4589efdb8_github_com_icon_6c4ebda9.png"
-            alt="Open-Sora"
-            className="h-7 w-auto"
-          />
+          <img src="https://media.base44.com/images/public/6a036e3dc4cd55282c5c04ac/3cb3a56cc_ChatGPT_Image_May_12__2026__02_08_14_PM.png"
+
+          alt="Open-Sora"
+          className="h-7 w-auto" />
+          
           <span className="font-bold text-background text-base hidden sm:inline">UnitySora</span>
         </Link>
 
         {/* Desktop Nav */}
         <nav className="hidden sm:flex items-center gap-1">
-          {NAV.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                location.pathname === item.to
-                  ? "bg-background/15 text-background"
-                  : "text-background/70 hover:text-background hover:bg-background/10"
-              }`}
-            >
+          {NAV.map((item) =>
+          <Link
+            key={item.to}
+            to={item.to}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+            location.pathname === item.to ?
+            "bg-background/15 text-background" :
+            "text-background/70 hover:text-background hover:bg-background/10"}`
+            }>
+            
               <item.icon className="w-4 h-4" />
               {item.label}
             </Link>
-          ))}
+          )}
         </nav>
 
         {/* Right */}
@@ -75,20 +75,20 @@ export default function Header() {
                   </Button>
                 </div>
                 <nav className="flex flex-col p-4 gap-1">
-                  {NAV.map((item) => (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setOpen(false)}
-                      className={`flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
-                        location.pathname === item.to
-                          ? "bg-background/15 text-background"
-                          : "text-background/70 hover:text-background hover:bg-background/10"
-                      }`}
-                    >
+                  {NAV.map((item) =>
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                    location.pathname === item.to ?
+                    "bg-background/15 text-background" :
+                    "text-background/70 hover:text-background hover:bg-background/10"}`
+                    }>
+                    
                       <item.icon className="w-4 h-4" /> {item.label}
                     </Link>
-                  ))}
+                  )}
                 </nav>
                 <div className="mt-auto p-4 border-t border-background/10">
                   <Link to="/generate" onClick={() => setOpen(false)}>
@@ -102,6 +102,6 @@ export default function Header() {
           </Sheet>
         </div>
       </div>
-    </header>
-  );
+    </header>);
+
 }
