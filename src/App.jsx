@@ -8,7 +8,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Home from './pages/Home';
 import Docs from './pages/Docs';
 import Generate from './pages/GeneratePrivate';
-import Gallery from './pages/Gallery';
+import Gallery from './pages/GalleryPrivate';
 import Layout from './components/Layout';
 // Add page imports here
 
