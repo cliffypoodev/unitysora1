@@ -76,7 +76,16 @@
       "type": "string"
     },
     "video_url": {
-      "type": "string"
+      "type": "string",
+      "description": "Playable video URL used by gallery and modal"
+    },
+    "source_video_url": {
+      "type": "string",
+      "description": "Original provider/Base44 media video URL before proxying or export transformation"
+    },
+    "proxy_video_url": {
+      "type": "string",
+      "description": "Optional same-origin backend proxy URL used for iOS file sharing and export"
     },
     "mode": {
       "type": "string",
