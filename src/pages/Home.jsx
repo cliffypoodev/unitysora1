@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
-import { Wand2, Star, GitFork, ArrowRight, Play, Zap, Globe, Users, BarChart2, Github, Heart } from "lucide-react";
+import { Wand2, ArrowRight, Play, Zap, Globe, Users, BarChart2, Heart } from "lucide-react";
 
 const DEMO_VIDEOS = [
   { url: "https://media.base44.com/images/public/6a036e3dc4cd55282c5c04ac/8a3461ba8_github_com_ft_0001_1_1_b592012d.gif", prompt: "A group of anthropomorphic mushrooms having a disco party in the middle of a dark enchanted forest, with glowing neon lights." },
@@ -75,11 +75,7 @@ export default function Home() {
                   <Play className="w-5 h-5" /> View Gallery
                 </Button>
               </Link>
-              <a href="https://github.com/hpcaitech/Open-Sora" target="_blank" rel="noopener noreferrer">
-                <Button size="lg" variant="outline" className="border-background/30 text-background hover:bg-background/10 gap-2">
-                  <Github className="w-5 h-5" /> GitHub
-                </Button>
-              </a>
+
             </div>
 
           </motion.div>
