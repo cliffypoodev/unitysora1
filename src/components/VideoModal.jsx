@@ -50,23 +50,80 @@ async function copyToClipboard(text) {
   }
 }
 
+function getProxyUrls(assetUrl) {
+  const encoded = encodeURIComponent(assetUrl);
+  const origin = window.location.origin;
+
+  return [
+    `${origin}/api/functions/videoFileProxy?url=${encoded}`,
+    `${origin}/functions/videoFileProxy?url=${encoded}`,
+  ];
+}
+
+async function fetchProxyBlob(assetUrl) {
+  let lastError = null;
+
+  for (const proxyUrl of getProxyUrls(assetUrl)) {
+    try {
+      const response = await fetch(proxyUrl, {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Proxy failed with ${response.status}`);
+      }
+
+      const blob = await response.blob();
+
+      if (!blob || blob.size === 0) {
+        throw new Error("Proxy returned an empty file.");
+      }
+
+      return blob;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("No video proxy endpoint worked.");
+}
+
 async function buildVideoFile(assetUrl, videoId) {
-  const response = await fetch(assetUrl, {
-    method: "GET",
-    mode: "cors",
-    cache: "no-store",
-  });
+  let blob = null;
 
-  if (!response.ok) throw new Error("Could not fetch the video file.");
+  try {
+    blob = await fetchProxyBlob(assetUrl);
+  } catch (proxyError) {
+    console.warn("[UnitySora] Video proxy failed. Trying direct video fetch.", proxyError);
 
-  const blob = await response.blob();
-  if (!blob || blob.size === 0) throw new Error("The video file was empty.");
+    const response = await fetch(assetUrl, {
+      method: "GET",
+      mode: "cors",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error("Could not fetch the video file.");
+    }
+
+    blob = await response.blob();
+  }
+
+  if (!blob || blob.size === 0) {
+    throw new Error("The video file was empty.");
+  }
 
   const extension = getFileExtensionFromUrl(assetUrl, blob.type);
   const mimeType = getMimeType(extension, blob.type);
-  const typedBlob = blob.type === mimeType ? blob : new Blob([blob], { type: mimeType });
+  const typedBlob =
+    blob.type === mimeType ? blob : new Blob([blob], { type: mimeType });
 
-  return new File([typedBlob], `unitysora-video-${videoId || Date.now()}.${extension}`, { type: mimeType });
+  return new File(
+    [typedBlob],
+    `unitysora-video-${videoId || Date.now()}.${extension}`,
+    { type: mimeType }
+  );
 }
 
 export default function VideoModal({ video, onClose, onLike }) {
