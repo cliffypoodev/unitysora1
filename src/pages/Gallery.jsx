@@ -32,11 +32,11 @@ export default function Gallery() {
     if (e && e.stopPropagation) e.stopPropagation();
     const newLikes = (video.likes || 0) + 1;
     await base44.entities.GeneratedVideo.update(video.id, { likes: newLikes });
-    setVideos(prev => prev.map(v => v.id === video.id ? { ...v, likes: newLikes } : v));
-    if (selectedVideo?.id === video.id) setSelectedVideo(prev => ({ ...prev, likes: newLikes }));
+    setVideos((prev) => prev.map((v) => v.id === video.id ? { ...v, likes: newLikes } : v));
+    if (selectedVideo?.id === video.id) setSelectedVideo((prev) => ({ ...prev, likes: newLikes }));
   };
 
-  const filtered = videos.filter(v => {
+  const filtered = videos.filter((v) => {
     const matchSearch = !search || v.prompt?.toLowerCase().includes(search.toLowerCase());
     const matchMode = filterMode === "all" || v.mode === filterMode;
     return matchSearch && matchMode;
@@ -56,7 +56,7 @@ export default function Gallery() {
               </Button>
             </Link>
             <a href="https://github.com/hpcaitech/Open-Sora" target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" className="gap-2">Repository</Button>
+              <Button variant="outline" className="gap-2 hidden">Repository</Button>
             </a>
           </div>
         </div>
@@ -69,8 +69,8 @@ export default function Gallery() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search prompts..."
-              className="pl-9 text-sm"
-            />
+              className="pl-9 text-sm" />
+            
           </div>
           <div className="flex gap-2">
             <Select value={filterMode} onValueChange={setFilterMode}>
@@ -99,14 +99,14 @@ export default function Gallery() {
         </div>
 
         {/* Grid */}
-        {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="rounded-xl bg-muted animate-pulse aspect-[9/16]" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-24">
+        {loading ?
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) =>
+          <div key={i} className="rounded-xl bg-muted animate-pulse aspect-[9/16]" />
+          )}
+          </div> :
+        filtered.length === 0 ?
+        <div className="text-center py-24">
             <Image className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
             <p className="text-muted-foreground font-medium mb-2">No videos yet</p>
             <p className="text-sm text-muted-foreground mb-6">Generate your first video to see it here</p>
@@ -115,29 +115,29 @@ export default function Gallery() {
                 <Wand2 className="w-4 h-4" /> Generate Video
               </Button>
             </Link>
-          </div>
-        ) : (
-          <div className="columns-2 sm:columns-3 md:columns-4 gap-4 space-y-4">
-            {filtered.map((video, i) => (
-              <motion.div
-                key={video.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}
-                onClick={() => setSelectedVideo(video)}
-              className="break-inside-avoid rounded-xl overflow-hidden border border-border bg-card group shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer mb-4"
-              >
+          </div> :
+
+        <div className="columns-2 sm:columns-3 md:columns-4 gap-4 space-y-4">
+            {filtered.map((video, i) =>
+          <motion.div
+            key={video.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.04 }}
+            onClick={() => setSelectedVideo(video)}
+            className="break-inside-avoid rounded-xl overflow-hidden border border-border bg-card group shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer mb-4">
+            
                 <div className="relative overflow-hidden bg-black">
                   <img
-                    src={video.thumbnail_url}
-                    alt={video.prompt}
-                    className="w-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
+                src={video.thumbnail_url}
+                alt={video.prompt}
+                className="w-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   <button
-                    onClick={(e) => handleLike(e, video)}
-                    className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 hover:bg-black/70 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs transition-all opacity-0 group-hover:opacity-100"
-                  >
+                onClick={(e) => handleLike(e, video)}
+                className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 hover:bg-black/70 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs transition-all opacity-0 group-hover:opacity-100">
+                
                     <Heart className="w-3 h-3" /> {video.likes || 0}
                   </button>
                   <div className="absolute bottom-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -159,16 +159,16 @@ export default function Gallery() {
                   </div>
                 </div>
               </motion.div>
-            ))}
+          )}
           </div>
-        )}
+        }
       </div>
 
       <VideoModal
         video={selectedVideo}
         onClose={() => setSelectedVideo(null)}
-        onLike={(video) => handleLike(null, video)}
-      />
-    </div>
-  );
+        onLike={(video) => handleLike(null, video)} />
+      
+    </div>);
+
 }
