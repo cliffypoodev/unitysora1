@@ -22,11 +22,33 @@ function getOwnerId(user) {
   return String(user?.id || user?.email || user?.uid || user?.sub || "");
 }
 
+function normalize(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function belongsToUser(video, ownerId, email) {
-  if (!ownerId && !email) return false;
-  if (video?.owner_user_id && ownerId && String(video.owner_user_id) === ownerId) return true;
-  if (video?.owner_email && email && String(video.owner_email).toLowerCase() === String(email).toLowerCase()) return true;
+  const expectedOwnerId = normalize(ownerId);
+  const expectedEmail = normalize(email);
+  const videoOwnerId = normalize(video?.owner_user_id);
+  const videoOwnerEmail = normalize(video?.owner_email);
+
+  if (!expectedOwnerId && !expectedEmail) return false;
+  if (videoOwnerId && expectedOwnerId && videoOwnerId === expectedOwnerId) return true;
+  if (videoOwnerId && expectedEmail && videoOwnerId === expectedEmail) return true;
+  if (videoOwnerEmail && expectedEmail && videoOwnerEmail === expectedEmail) return true;
+  if (videoOwnerEmail && expectedOwnerId && videoOwnerEmail === expectedOwnerId) return true;
   return false;
+}
+
+function mergeUniqueVideos(groups) {
+  const map = new Map();
+  for (const group of groups) {
+    for (const video of group || []) {
+      const key = video?.id || `${video?.video_url || ""}-${video?.created_date || ""}`;
+      if (key && !map.has(key)) map.set(key, video);
+    }
+  }
+  return Array.from(map.values());
 }
 
 export default function GalleryPrivate() {
@@ -82,18 +104,34 @@ export default function GalleryPrivate() {
         return;
       }
 
-      let results = [];
+      const queries = [];
 
       if (ownerId) {
-        results = await base44.entities.GeneratedVideo.filter({ status: "completed", owner_user_id: ownerId }, sortBy, 100);
+        queries.push(base44.entities.GeneratedVideo.filter({ status: "completed", owner_user_id: ownerId }, sortBy, 100).catch(() => []));
       }
 
-      if ((!results || results.length === 0) && ownerEmail) {
-        results = await base44.entities.GeneratedVideo.filter({ status: "completed", owner_email: ownerEmail }, sortBy, 100);
+      if (ownerEmail) {
+        queries.push(base44.entities.GeneratedVideo.filter({ status: "completed", owner_email: ownerEmail }, sortBy, 100).catch(() => []));
       }
 
-      setVideos((results || []).filter((video) => hasPlayableVideo(video) && belongsToUser(video, ownerId, ownerEmail)));
-    } catch {
+      // Safety fallback: pull a limited recent set, then client-side filter by owner.
+      // This catches records when Base44 has not indexed new owner fields yet.
+      queries.push(base44.entities.GeneratedVideo.filter({ status: "completed" }, sortBy, 100).catch(() => []));
+
+      const groups = await Promise.all(queries);
+      const merged = mergeUniqueVideos(groups);
+      const ownedPlayable = merged.filter((video) => hasPlayableVideo(video) && belongsToUser(video, ownerId, ownerEmail));
+
+      console.info("[UnitySora] Private gallery loaded", {
+        ownerId,
+        ownerEmail,
+        fetched: merged.length,
+        shown: ownedPlayable.length,
+      });
+
+      setVideos(ownedPlayable);
+    } catch (error) {
+      console.error("[UnitySora] Private gallery load failed", error);
       setVideos([]);
     } finally {
       setLoading(false);
@@ -179,7 +217,7 @@ export default function GalleryPrivate() {
               <div className="text-center py-24">
                 <Image className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
                 <p className="text-muted-foreground font-medium mb-2">No private videos yet</p>
-                <p className="text-sm text-muted-foreground mb-6">New generations will be tied to your account and appear here.</p>
+                <p className="text-sm text-muted-foreground mb-6">If you just generated one, refresh after the Base44 database finishes saving it.</p>
                 <Link to="/generate"><Button className="gap-2 bg-primary hover:bg-primary/90"><Wand2 className="w-4 h-4" /> Generate Video</Button></Link>
               </div>
             ) : (
