@@ -24,7 +24,7 @@ export default function Header() {
             alt="Open-Sora"
             className="h-7 w-auto"
           />
-          <span className="font-bold text-background text-base hidden sm:inline">Open-Sora</span>
+          <span className="font-bold text-background text-base hidden sm:inline">UnitySora</span>
         </Link>
 
         {/* Desktop Nav */}
