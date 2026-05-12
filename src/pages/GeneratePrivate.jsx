@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle2, ImageIcon, Loader2, Sparkles, Upload, Video, Wand2, X } from "lucide-react";
 
 function getOwnerFields(user) {
-  const ownerId = String(user?.id || user?.email || user?.uid || "");
+  const ownerId = String(user?.id || user?.email || user?.uid || user?.sub || "");
   return {
     owner_user_id: ownerId,
     owner_email: String(user?.email || ""),
@@ -94,9 +94,38 @@ async function callImageToVideo(payload) {
 }
 
 export default function GeneratePrivate() {
-  const { user, isAuthenticated } = useAuth();
+  const { user: contextUser, isAuthenticated } = useAuth();
+  const [resolvedUser, setResolvedUser] = useState(contextUser || null);
+  const [checkingUser, setCheckingUser] = useState(!contextUser);
   const fileInputRef = useRef(null);
-  const ownerFields = getOwnerFields(user);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveUser() {
+      if (contextUser?.id || contextUser?.email) {
+        setResolvedUser(contextUser);
+        setCheckingUser(false);
+        return;
+      }
+
+      try {
+        setCheckingUser(true);
+        const currentUser = await base44.auth.me();
+        if (!cancelled) setResolvedUser(currentUser || null);
+      } catch {
+        if (!cancelled) setResolvedUser(null);
+      } finally {
+        if (!cancelled) setCheckingUser(false);
+      }
+    }
+
+    resolveUser();
+    return () => { cancelled = true; };
+  }, [contextUser]);
+
+  const ownerFields = getOwnerFields(resolvedUser);
+  const isSignedIn = Boolean(isAuthenticated || resolvedUser?.id || resolvedUser?.email || ownerFields.owner_user_id);
 
   const [prompt, setPrompt] = useState(() => new URLSearchParams(window.location.search).get("prompt") || "");
   const [mode, setMode] = useState("t2v");
@@ -132,8 +161,8 @@ export default function GeneratePrivate() {
     const finalPrompt = prompt.trim();
     if (!finalPrompt || isGenerating) return;
 
-    if (!isAuthenticated || !ownerFields.owner_user_id) {
-      setErrorMessage("You must be signed in before generating private videos.");
+    if (!isSignedIn || !ownerFields.owner_user_id) {
+      setErrorMessage("Your login is still loading. Wait a moment, then try again.");
       return;
     }
 
@@ -192,7 +221,7 @@ export default function GeneratePrivate() {
     }
   };
 
-  const canGenerate = Boolean(prompt.trim()) && isAuthenticated && Boolean(ownerFields.owner_user_id) && !isGenerating && !uploadingImage && (mode !== "i2v" || Boolean(referenceImageUrl));
+  const canGenerate = Boolean(prompt.trim()) && isSignedIn && Boolean(ownerFields.owner_user_id) && !checkingUser && !isGenerating && !uploadingImage && (mode !== "i2v" || Boolean(referenceImageUrl));
 
   return (
     <div className="min-h-screen bg-background">
@@ -279,7 +308,8 @@ export default function GeneratePrivate() {
             </div>
 
             {errorMessage && <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700"><AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" /><span>{errorMessage}</span></div>}
-            {!isAuthenticated && <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-700"><AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" /><span>Sign in is required so videos stay private to your account.</span></div>}
+            {checkingUser && <div className="flex items-start gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-sm text-blue-700"><Loader2 className="w-4 h-4 mt-0.5 flex-shrink-0 animate-spin" /><span>Checking your signed-in account...</span></div>}
+            {!checkingUser && !isSignedIn && <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-700"><AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" /><span>Sign in is required so videos stay private to your account.</span></div>}
 
             <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 gap-2">
               {isGenerating ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating...</> : <><Sparkles className="w-5 h-5" /> Generate Video</>}
