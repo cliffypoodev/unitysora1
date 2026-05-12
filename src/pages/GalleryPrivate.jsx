@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, Filter, Heart, Image, PlayCircle, Search, Wand2 } from "lucide-react";
+import { Clock, Filter, Heart, Image, Loader2, PlayCircle, Search, Wand2 } from "lucide-react";
 import VideoModal from "@/components/VideoModal";
 
 function hasPlayableVideo(video) {
@@ -19,7 +19,7 @@ function getPoster(video) {
 }
 
 function getOwnerId(user) {
-  return String(user?.id || user?.email || user?.uid || "");
+  return String(user?.id || user?.email || user?.uid || user?.sub || "");
 }
 
 function belongsToUser(video, ownerId, email) {
@@ -30,9 +30,13 @@ function belongsToUser(video, ownerId, email) {
 }
 
 export default function GalleryPrivate() {
-  const { user, isAuthenticated } = useAuth();
-  const ownerId = getOwnerId(user);
-  const ownerEmail = String(user?.email || "");
+  const { user: contextUser, isAuthenticated } = useAuth();
+  const [resolvedUser, setResolvedUser] = useState(contextUser || null);
+  const [checkingUser, setCheckingUser] = useState(!contextUser);
+
+  const ownerId = getOwnerId(resolvedUser);
+  const ownerEmail = String(resolvedUser?.email || "");
+  const isSignedIn = Boolean(isAuthenticated || resolvedUser?.id || resolvedUser?.email || ownerId);
 
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,13 +46,38 @@ export default function GalleryPrivate() {
   const [selectedVideo, setSelectedVideo] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function resolveUser() {
+      if (contextUser?.id || contextUser?.email) {
+        setResolvedUser(contextUser);
+        setCheckingUser(false);
+        return;
+      }
+
+      try {
+        setCheckingUser(true);
+        const currentUser = await base44.auth.me();
+        if (!cancelled) setResolvedUser(currentUser || null);
+      } catch {
+        if (!cancelled) setResolvedUser(null);
+      } finally {
+        if (!cancelled) setCheckingUser(false);
+      }
+    }
+
+    resolveUser();
+    return () => { cancelled = true; };
+  }, [contextUser]);
+
+  useEffect(() => {
     loadVideos();
-  }, [sortBy, ownerId, ownerEmail, isAuthenticated]);
+  }, [sortBy, ownerId, ownerEmail, isSignedIn, checkingUser]);
 
   const loadVideos = async () => {
     setLoading(true);
     try {
-      if (!isAuthenticated || (!ownerId && !ownerEmail)) {
+      if (checkingUser || !isSignedIn || (!ownerId && !ownerEmail)) {
         setVideos([]);
         return;
       }
@@ -100,7 +129,14 @@ export default function GalleryPrivate() {
           </div>
         </div>
 
-        {!isAuthenticated && (
+        {checkingUser && (
+          <div className="text-center py-24">
+            <Loader2 className="w-10 h-10 mx-auto text-muted-foreground animate-spin mb-4" />
+            <p className="text-muted-foreground font-medium mb-2">Checking your signed-in account...</p>
+          </div>
+        )}
+
+        {!checkingUser && !isSignedIn && (
           <div className="text-center py-24">
             <Image className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
             <p className="text-muted-foreground font-medium mb-2">Sign in required</p>
@@ -108,7 +144,7 @@ export default function GalleryPrivate() {
           </div>
         )}
 
-        {isAuthenticated && (
+        {!checkingUser && isSignedIn && (
           <>
             <div className="flex flex-col sm:flex-row gap-3 mb-8">
               <div className="relative flex-1 max-w-md">
