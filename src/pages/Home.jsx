@@ -43,11 +43,11 @@ export default function Home() {
   return (
     <div className="bg-background min-h-screen">
       {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-foreground via-foreground/95 to-primary/80 text-background py-24 px-4">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-accent/20 rounded-full blur-3xl" />
-        </div>
+      <section
+        className="relative overflow-hidden bg-cover bg-center text-background py-24 px-4"
+        style={{ backgroundImage: "url('https://media.base44.com/images/public/6a036e3dc4cd55282c5c04ac/b92874e60_ChatGPTImageMay12202602_07_28PM.png')" }}
+      >
+        <div className="absolute inset-0 pointer-events-none bg-black/45" />
         <div className="max-w-[1200px] mx-auto relative z-10 text-center">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: "easeOut" }}>
 
