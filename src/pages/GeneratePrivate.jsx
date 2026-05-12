@@ -19,9 +19,10 @@ function normalizeAspectRatio(aspectRatio) {
 function normalizeDuration(duration) {
   const parsed = parseInt(String(duration || "4s"), 10);
   if (Number.isNaN(parsed)) return 4;
+  if (parsed <= 2) return 2;
   if (parsed <= 4) return 4;
-  if (parsed <= 6) return 6;
-  return 8;
+  if (parsed <= 8) return 8;
+  return 16;
 }
 
 function extractVideoUrl(result) {
