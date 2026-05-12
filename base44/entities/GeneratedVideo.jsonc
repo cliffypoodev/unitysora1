@@ -102,6 +102,14 @@
     "likes": {
       "type": "number",
       "default": 0
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Failure details when video generation does not return a playable video"
+    },
+    "generation_payload_debug": {
+      "type": "string",
+      "description": "Sanitized JSON debug info showing mode, reference-image presence, and provider payload keys"
     }
   },
   "required": [
