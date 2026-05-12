@@ -1,15 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  X,
-  Heart,
-  Download,
-  Copy,
-  Wand2,
-  AlertTriangle,
-  Share2,
-  ExternalLink,
-  Check,
-} from "lucide-react";
+import { X, Heart, Copy, Wand2, AlertTriangle, Share2, ExternalLink, Check } from "lucide-react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -34,61 +24,19 @@ function buildAbsoluteUrl(url) {
   }
 }
 
-function getFileExtensionFromUrl(url, mimeType = "") {
-  const cleanUrl = String(url || "").split("?")[0].toLowerCase();
-  if (cleanUrl.endsWith(".gif") || mimeType.includes("gif")) return "gif";
-  if (cleanUrl.endsWith(".webm") || mimeType.includes("webm")) return "webm";
-  if (cleanUrl.endsWith(".mov") || mimeType.includes("quicktime")) return "mov";
-  return "mp4";
-}
-
 async function copyToClipboard(text) {
   if (!text) return false;
-
   try {
     await navigator.clipboard.writeText(text);
     return true;
   } catch {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.style.position = "fixed";
-    textarea.style.left = "-9999px";
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    const copied = document.execCommand("copy");
-    document.body.removeChild(textarea);
-    return copied;
+    return false;
   }
 }
 
 export default function VideoModal({ video, onClose, onLike }) {
-  const videoRef = useRef(null);
-  const closeLockRef = useRef(false);
-  const messageTimerRef = useRef(null);
-
-  const [exportOpen, setExportOpen] = useState(true);
-  const [exportMessage, setExportMessage] = useState("");
-  const [exporting, setExporting] = useState(false);
-
-  useEffect(() => {
-    setExportOpen(true);
-  }, [video?.id, video?.video_url, video?.thumbnail_url]);
-
-  useEffect(() => {
-    return () => {
-      if (messageTimerRef.current) window.clearTimeout(messageTimerRef.current);
-      if (videoRef.current) {
-        try {
-          videoRef.current.pause();
-          videoRef.current.removeAttribute("src");
-          videoRef.current.load();
-        } catch {
-          // Ignore media cleanup errors on iOS.
-        }
-      }
-    };
-  }, []);
+  const [message, setMessage] = useState("");
+  const [sharing, setSharing] = useState(false);
 
   if (!video) return null;
 
@@ -97,45 +45,14 @@ export default function VideoModal({ video, onClose, onLike }) {
   const assetUrl = buildAbsoluteUrl(getAssetUrl(video));
   const canExport = Boolean(assetUrl);
 
-  const showMessage = (message) => {
-    setExportMessage(message);
-    if (messageTimerRef.current) window.clearTimeout(messageTimerRef.current);
-    messageTimerRef.current = window.setTimeout(() => setExportMessage(""), 6500);
+  const showMessage = (text) => {
+    setMessage(text);
+    window.setTimeout(() => setMessage(""), 4500);
   };
 
-  const safeClose = () => {
-    if (closeLockRef.current) return;
-    closeLockRef.current = true;
-
-    if (messageTimerRef.current) window.clearTimeout(messageTimerRef.current);
-
-    if (videoRef.current) {
-      try {
-        videoRef.current.pause();
-        videoRef.current.removeAttribute("src");
-        videoRef.current.load();
-      } catch {
-        // Ignore media cleanup errors on iOS.
-      }
-    }
-
-    window.setTimeout(() => {
-      onClose?.();
-      closeLockRef.current = false;
-    }, 30);
-  };
-
-  const pausePreview = () => {
-    if (videoRef.current) {
-      try { videoRef.current.pause(); } catch {}
-    }
-  };
-
-  const handleNativeShare = async () => {
-    if (!assetUrl || exporting) return;
-
-    setExporting(true);
-    pausePreview();
+  const handleShareSave = async () => {
+    if (!assetUrl || sharing) return;
+    setSharing(true);
 
     try {
       if (navigator.share) {
@@ -145,7 +62,7 @@ export default function VideoModal({ video, onClose, onLike }) {
             text: video.prompt || "Generated video",
             url: assetUrl,
           });
-          showMessage("iOS share/save menu opened.");
+          showMessage("Share/save menu opened.");
           return;
         } catch (error) {
           if (error?.name === "AbortError") return;
@@ -153,82 +70,33 @@ export default function VideoModal({ video, onClose, onLike }) {
       }
 
       const copied = await copyToClipboard(assetUrl);
-      showMessage(
-        copied
-          ? "Share menu did not open. The video link was copied. Tap Open Video below, then use the browser share/save controls."
-          : "Share menu did not open. Tap Open Video below, then use the browser share/save controls."
-      );
+      showMessage(copied ? "Video link copied. Open the video and use browser save/share controls." : "Use Open Video to save/share from your browser.");
     } finally {
-      setExporting(false);
-      setExportOpen(true);
+      setSharing(false);
     }
+  };
+
+  const handleCopyPrompt = async () => {
+    const copied = await copyToClipboard(video.prompt || "");
+    showMessage(copied ? "Prompt copied." : "Could not copy prompt.");
   };
 
   const handleCopyLink = async () => {
     const copied = await copyToClipboard(assetUrl);
-    showMessage(copied ? "Video link copied." : "Could not copy the link on this device.");
+    showMessage(copied ? "Video link copied." : "Could not copy video link.");
   };
 
   const handleOpenVideo = () => {
     if (!assetUrl) return;
-    pausePreview();
     window.open(assetUrl, "_blank", "noopener,noreferrer");
-    showMessage("Opened video in a new tab. Use the browser share/save controls there.");
-  };
-
-  const handleDownload = async () => {
-    if (!assetUrl || exporting) return;
-    setExporting(true);
-    pausePreview();
-
-    try {
-      const response = await fetch(assetUrl, {
-        method: "GET",
-        mode: "cors",
-        cache: "no-store",
-      });
-
-      if (!response.ok) throw new Error("The file could not be fetched for download.");
-
-      const blob = await response.blob();
-      if (!blob || blob.size === 0) throw new Error("The downloaded file was empty.");
-
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      const extension = getFileExtensionFromUrl(assetUrl, blob.type);
-      link.href = objectUrl;
-      link.download = `unitysora-video-${video.id || Date.now()}.${extension}`;
-      link.rel = "noopener noreferrer";
-      link.style.display = "none";
-      document.body.appendChild(link);
-      link.click();
-
-      window.setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(objectUrl);
-      }, 1000);
-
-      showMessage("Download started. On iPhone, check Files or Downloads. If nothing appears, tap iOS Share / Save.");
-    } catch {
-      const copied = await copyToClipboard(assetUrl);
-      showMessage(
-        copied
-          ? "Direct download was blocked by iOS or the video host. The video link was copied. Tap iOS Share / Save instead."
-          : "Direct download was blocked by iOS or the video host. Tap iOS Share / Save instead."
-      );
-    } finally {
-      setExporting(false);
-      setExportOpen(true);
-    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/70">
       <div className="bg-card border border-border rounded-2xl overflow-hidden max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl">
         <div className="relative bg-black">
           {playable ? (
             <video
-              ref={videoRef}
               src={video.video_url}
               controls
               playsInline
@@ -237,7 +105,7 @@ export default function VideoModal({ video, onClose, onLike }) {
               poster={getPoster(video)}
             />
           ) : isDemo ? (
-            <img src={video.thumbnail_url} alt={video.prompt} className="w-full object-contain max-h-[52vh]" />
+            <img src={video.thumbnail_url} alt={video.prompt || "Video preview"} className="w-full object-contain max-h-[52vh]" />
           ) : (
             <div className="min-h-[220px] flex flex-col items-center justify-center text-white/80 p-8 text-center">
               <AlertTriangle className="w-10 h-10 mb-3 text-yellow-400" />
@@ -245,23 +113,32 @@ export default function VideoModal({ video, onClose, onLike }) {
               <p className="text-sm text-white/60 mt-1">This generation should be treated as failed, not completed.</p>
             </div>
           )}
-          <button onClick={safeClose} className="absolute top-3 right-3 bg-black/70 hover:bg-black/90 text-white rounded-full p-2 transition-colors">
+          <button onClick={onClose} className="absolute top-3 right-3 bg-black/70 hover:bg-black/90 text-white rounded-full p-2 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-4 pb-5">
           {canExport && (
-            <div className="sticky top-0 z-10 -mx-4 mb-4 px-4 py-3 bg-card/95 backdrop-blur border-b border-border">
-              <div className="grid grid-cols-1 gap-2">
-                <Button type="button" size="lg" className="w-full gap-2 bg-primary hover:bg-primary/90" disabled={exporting} onClick={handleNativeShare}>
-                  {exporting ? <Download className="w-4 h-4 animate-pulse" /> : <Share2 className="w-4 h-4" />}
-                  {exporting ? "Preparing Save Options..." : "iOS Share / Save"}
+            <div className="mb-4 rounded-xl border border-border bg-muted/30 p-3">
+              <Button type="button" size="lg" className="w-full gap-2 bg-primary hover:bg-primary/90" disabled={sharing} onClick={handleShareSave}>
+                <Share2 className="w-4 h-4" /> {sharing ? "Opening Save Options..." : "iOS Share / Save"}
+              </Button>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleOpenVideo}>
+                  <ExternalLink className="w-3.5 h-3.5" /> Open Video
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="w-full gap-2" disabled={exporting} onClick={() => setExportOpen((value) => !value)}>
-                  <ExternalLink className="w-3.5 h-3.5" /> {exportOpen ? "Hide More Export Options" : "More Export Options"}
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleCopyLink}>
+                  <Copy className="w-3.5 h-3.5" /> Copy Link
                 </Button>
               </div>
+            </div>
+          )}
+
+          {message && (
+            <div className="mb-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-700 flex items-start gap-2">
+              <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>{message}</span>
             </div>
           )}
 
@@ -273,56 +150,25 @@ export default function VideoModal({ video, onClose, onLike }) {
             </div>
           )}
 
-          {exportMessage && (
-            <div className="mb-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-700 flex items-start gap-2">
-              <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span>{exportMessage}</span>
-            </div>
-          )}
-
           <div className="flex flex-wrap gap-2 mb-4">
             <Badge variant="outline" className="text-xs">{video.resolution}</Badge>
             <Badge variant="outline" className="text-xs">{video.aspect_ratio}</Badge>
             <Badge variant="outline" className="text-xs">{video.duration}</Badge>
             <Badge variant="outline" className="text-xs">{video.mode === "i2v" ? "Image-to-Video" : "Text-to-Video"}</Badge>
-            {video.camera_motion && video.camera_motion !== "none" && <Badge variant="outline" className="text-xs">{video.camera_motion}</Badge>}
             {!playable && !isDemo && <Badge className="bg-red-500/10 text-red-700 border-red-500/20 text-xs">Missing Video</Badge>}
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5" disabled={exporting} onClick={() => onLike(video)}>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onLike?.(video)}>
               <Heart className="w-3.5 h-3.5" /> {video.likes || 0} Likes
             </Button>
-            <Button variant="outline" size="sm" className="gap-1.5" disabled={exporting} onClick={() => copyToClipboard(video.prompt || "")}>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleCopyPrompt}>
               <Copy className="w-3.5 h-3.5" /> Copy Prompt
             </Button>
-            <Button size="sm" className="gap-1.5" disabled={exporting} onClick={() => { window.location.href = `/generate?prompt=${encodeURIComponent(video.prompt || "")}`; }}>
+            <Button size="sm" className="gap-1.5" onClick={() => { window.location.href = `/generate?prompt=${encodeURIComponent(video.prompt || "")}`; }}>
               <Wand2 className="w-3.5 h-3.5" /> Use Prompt
             </Button>
           </div>
-
-          {canExport && exportOpen && (
-            <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3 shadow-sm">
-              <p className="text-xs font-semibold text-foreground mb-1">More export options</p>
-              <p className="text-xs text-muted-foreground mb-3">
-                Use iOS Share / Save first. Direct Download is a fallback because iOS may block large in-browser downloads.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Button type="button" variant="default" size="sm" className="gap-1.5" onClick={handleNativeShare} disabled={exporting}>
-                  <Share2 className="w-3.5 h-3.5" /> iOS Share / Save
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleDownload} disabled={exporting}>
-                  <Download className="w-3.5 h-3.5" /> Download File
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleOpenVideo} disabled={exporting}>
-                  <ExternalLink className="w-3.5 h-3.5" /> Open Video
-                </Button>
-              </div>
-              <Button type="button" variant="ghost" size="sm" className="gap-1.5 mt-2 w-full" onClick={handleCopyLink} disabled={exporting}>
-                <Copy className="w-3.5 h-3.5" /> Copy Video Link
-              </Button>
-            </div>
-          )}
         </div>
       </div>
     </div>
