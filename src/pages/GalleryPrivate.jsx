@@ -38,7 +38,6 @@ export default function GalleryPrivate() {
   const ownerId = getOwnerIdFromUser(resolvedUser);
   const ownerEmail = getOwnerEmailFromUser(resolvedUser);
   const isSignedIn = Boolean(isAuthenticated || resolvedUser?.id || resolvedUser?.email || ownerId || ownerEmail);
-  const localOwnedIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
 
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -94,8 +93,6 @@ export default function GalleryPrivate() {
         queries.push(base44.entities.GeneratedVideo.filter({ status: "completed", owner_email: ownerEmail }, sortBy, 100).catch(() => []));
       }
 
-      queries.push(base44.entities.GeneratedVideo.filter({ status: "completed" }, sortBy, 100).catch(() => []));
-
       const groups = await Promise.all(queries);
       const merged = mergeUniqueVideos(groups);
       const localIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
@@ -107,7 +104,6 @@ export default function GalleryPrivate() {
         localOwnedIds: Array.from(localIds),
         fetched: merged.length,
         shown: ownedPlayable.length,
-        fetchedIds: merged.map((video) => ({ id: video?.id, owner_user_id: video?.owner_user_id, owner_email: video?.owner_email, created_by: video?.created_by })),
       });
 
       setVideos(ownedPlayable);
@@ -200,7 +196,7 @@ export default function GalleryPrivate() {
               <div className="text-center py-24">
                 <Image className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
                 <p className="text-muted-foreground font-medium mb-2">No private videos yet</p>
-                <p className="text-sm text-muted-foreground mb-6">If you just generated one, hard refresh once after publishing the latest fix.</p>
+                <p className="text-sm text-muted-foreground mb-6">New videos must include your logged-in owner fields before they can appear here.</p>
                 <Link to="/generate"><Button className="gap-2 bg-primary hover:bg-primary/90"><Wand2 className="w-4 h-4" /> Generate Video</Button></Link>
               </div>
             ) : (
