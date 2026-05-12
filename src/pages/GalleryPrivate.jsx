@@ -1,9 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
-import { useAuth } from "@/lib/AuthContext";
-import { belongsToCurrentUser, getOwnerEmailFromUser, getOwnerIdFromUser, readLocalOwnedVideoIds } from "@/lib/videoOwnership";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,35 +17,7 @@ function getPoster(video) {
   return video?.thumbnail_url || video?.reference_image_url || "";
 }
 
-function mergeUniqueVideos(groups) {
-  const map = new Map();
-  for (const group of groups) {
-    for (const video of group || []) {
-      const key = video?.id || `${video?.video_url || ""}-${video?.created_date || ""}`;
-      if (key && !map.has(key)) map.set(key, video);
-    }
-  }
-  return Array.from(map.values());
-}
-
-function addOwnerScopedQuery(queries, field, value, sortBy) {
-  if (!value) return;
-  queries.push(
-    base44.entities.GeneratedVideo
-      .filter({ status: "completed", [field]: value }, sortBy, 100)
-      .catch(() => [])
-  );
-}
-
 export default function GalleryPrivate() {
-  const { user: contextUser, isAuthenticated } = useAuth();
-  const [resolvedUser, setResolvedUser] = useState(contextUser || null);
-  const [checkingUser, setCheckingUser] = useState(!contextUser);
-
-  const ownerId = getOwnerIdFromUser(resolvedUser);
-  const ownerEmail = getOwnerEmailFromUser(resolvedUser);
-  const isSignedIn = Boolean(isAuthenticated || resolvedUser?.id || resolvedUser?.email || ownerId || ownerEmail);
-
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -56,93 +26,18 @@ export default function GalleryPrivate() {
   const [selectedVideo, setSelectedVideo] = useState(null);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function resolveUser() {
-      if (contextUser?.id || contextUser?.email) {
-        setResolvedUser(contextUser);
-        setCheckingUser(false);
-        return;
-      }
-
-      try {
-        setCheckingUser(true);
-        const currentUser = await base44.auth.me();
-        if (!cancelled) setResolvedUser(currentUser || null);
-      } catch {
-        if (!cancelled) setResolvedUser(null);
-      } finally {
-        if (!cancelled) setCheckingUser(false);
-      }
-    }
-
-    resolveUser();
-    return () => { cancelled = true; };
-  }, [contextUser]);
-
-  useEffect(() => {
     loadVideos();
-  }, [sortBy, ownerId, ownerEmail, isSignedIn, checkingUser]);
+  }, [sortBy]);
 
   const loadVideos = async () => {
     setLoading(true);
     try {
-      if (checkingUser || !isSignedIn || (!ownerId && !ownerEmail)) {
-        setVideos([]);
-        return;
-      }
-
-      const queries = [];
-      const localIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
-
-      addOwnerScopedQuery(queries, "owner_user_id", ownerId, sortBy);
-      addOwnerScopedQuery(queries, "user_id", ownerId, sortBy);
-      addOwnerScopedQuery(queries, "creator_id", ownerId, sortBy);
-      addOwnerScopedQuery(queries, "created_by", ownerId, sortBy);
-      addOwnerScopedQuery(queries, "createdBy", ownerId, sortBy);
-
-      addOwnerScopedQuery(queries, "owner_email", ownerEmail, sortBy);
-      addOwnerScopedQuery(queries, "user_email", ownerEmail, sortBy);
-      addOwnerScopedQuery(queries, "creator_email", ownerEmail, sortBy);
-      addOwnerScopedQuery(queries, "created_by_email", ownerEmail, sortBy);
-      addOwnerScopedQuery(queries, "createdByEmail", ownerEmail, sortBy);
-
-      if (localIds.size > 0) {
-        queries.push(
-          base44.entities.GeneratedVideo
-            .filter({ status: "completed" }, sortBy, 100)
-            .then((items) => (items || []).filter((video) => localIds.has(String(video?.id || ""))))
-            .catch(() => [])
-        );
-      }
-
-      const groups = await Promise.all(queries);
-      const merged = mergeUniqueVideos(groups);
-      const ownedPlayable = merged.filter((video) => hasPlayableVideo(video) && belongsToCurrentUser(video, ownerId, ownerEmail, localIds));
-
-      console.info("[UnitySora] Private gallery loaded", {
-        ownerId,
-        ownerEmail,
-        localOwnedIds: Array.from(localIds),
-        queryCount: queries.length,
-        fetched: merged.length,
-        shown: ownedPlayable.length,
-        sample: merged.slice(0, 10).map((video) => ({
-          id: video?.id,
-          owner_user_id: video?.owner_user_id,
-          owner_email: video?.owner_email,
-          user_id: video?.user_id,
-          user_email: video?.user_email,
-          creator_id: video?.creator_id,
-          creator_email: video?.creator_email,
-          created_by: video?.created_by,
-          created_by_email: video?.created_by_email,
-        })),
-      });
-
-      setVideos(ownedPlayable);
+      const items = await base44.entities.GeneratedVideo.filter({ status: "completed" }, sortBy, 200);
+      const playable = (items || []).filter(hasPlayableVideo);
+      console.info("[UnitySora] Gallery loaded", { fetched: items?.length || 0, shown: playable.length });
+      setVideos(playable);
     } catch (error) {
-      console.error("[UnitySora] Private gallery load failed", error);
+      console.error("[UnitySora] Gallery load failed", error);
       setVideos([]);
     } finally {
       setLoading(false);
@@ -151,117 +46,99 @@ export default function GalleryPrivate() {
 
   const handleLike = async (event, video) => {
     if (event?.stopPropagation) event.stopPropagation();
-    const localIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
-    if (!belongsToCurrentUser(video, ownerId, ownerEmail, localIds)) return;
-
     const newLikes = (video.likes || 0) + 1;
-    await base44.entities.GeneratedVideo.update(video.id, { likes: newLikes });
-    setVideos((prev) => prev.map((item) => item.id === video.id ? { ...item, likes: newLikes } : item));
+    try {
+      await base44.entities.GeneratedVideo.update(video.id, { likes: newLikes });
+    } catch (error) {
+      console.warn("[UnitySora] Like update failed", error);
+    }
+    setVideos((prev) => prev.map((item) => (item.id === video.id ? { ...item, likes: newLikes } : item)));
     if (selectedVideo?.id === video.id) setSelectedVideo((prev) => ({ ...prev, likes: newLikes }));
   };
 
-  const filtered = videos.filter((video) => {
-    const matchSearch = !search || video.prompt?.toLowerCase().includes(search.toLowerCase());
-    const matchMode = filterMode === "all" || video.mode === filterMode;
-    const localIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
-    return hasPlayableVideo(video) && belongsToCurrentUser(video, ownerId, ownerEmail, localIds) && matchSearch && matchMode;
-  });
+  const filtered = useMemo(() => {
+    return videos.filter((video) => {
+      const matchSearch = !search || video.prompt?.toLowerCase().includes(search.toLowerCase());
+      const matchMode = filterMode === "all" || video.mode === filterMode;
+      return hasPlayableVideo(video) && matchSearch && matchMode;
+    });
+  }, [videos, search, filterMode]);
 
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-[1400px] mx-auto px-4 py-10">
         <div className="text-center mb-10">
-          <h1 className="text-4xl font-bold text-foreground mb-3">My Gallery</h1>
-          <p className="text-muted-foreground text-lg mb-1">Only videos generated by your signed-in account are shown here.</p>
+          <h1 className="text-4xl font-bold text-foreground mb-3">Gallery</h1>
+          <p className="text-muted-foreground text-lg mb-1">Generated videos</p>
           <div className="flex justify-center gap-3 mt-4">
             <Link to="/generate">
-              <Button className="gap-2 bg-primary hover:bg-primary/90"><Wand2 className="w-4 h-4" /> Generate Video</Button>
+              <Button className="gap-2 bg-primary hover:bg-primary/90">
+                <Wand2 className="w-4 h-4" /> Generate Video
+              </Button>
             </Link>
           </div>
         </div>
 
-        {checkingUser && (
-          <div className="text-center py-24">
-            <Loader2 className="w-10 h-10 mx-auto text-muted-foreground animate-spin mb-4" />
-            <p className="text-muted-foreground font-medium mb-2">Checking your signed-in account...</p>
+        <div className="flex flex-col sm:flex-row gap-3 mb-8">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search prompts..." className="pl-9 text-sm" />
           </div>
-        )}
+          <div className="flex gap-2">
+            <Select value={filterMode} onValueChange={setFilterMode}>
+              <SelectTrigger className="w-40 text-sm"><Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Modes</SelectItem>
+                <SelectItem value="t2v">Text-to-Video</SelectItem>
+                <SelectItem value="i2v">Image-to-Video</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-44 text-sm"><Clock className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="-created_date">Newest First</SelectItem>
+                <SelectItem value="created_date">Oldest First</SelectItem>
+                <SelectItem value="-likes">Most Liked</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
-        {!checkingUser && !isSignedIn && (
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, index) => <div key={index} className="rounded-xl bg-muted animate-pulse aspect-[9/16]" />)}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-24">
             <Image className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
-            <p className="text-muted-foreground font-medium mb-2">Sign in required</p>
-            <p className="text-sm text-muted-foreground mb-6">Your gallery is private and requires your Google/Base44 login.</p>
+            <p className="text-muted-foreground font-medium mb-2">No videos found</p>
+            <p className="text-sm text-muted-foreground mb-6">Generate a video, then refresh the gallery.</p>
+            <Link to="/generate"><Button className="gap-2 bg-primary hover:bg-primary/90"><Wand2 className="w-4 h-4" /> Generate Video</Button></Link>
           </div>
-        )}
-
-        {!checkingUser && isSignedIn && (
-          <>
-            <div className="flex flex-col sm:flex-row gap-3 mb-8">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search your prompts..." className="pl-9 text-sm" />
-              </div>
-              <div className="flex gap-2">
-                <Select value={filterMode} onValueChange={setFilterMode}>
-                  <SelectTrigger className="w-40 text-sm"><Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Modes</SelectItem>
-                    <SelectItem value="t2v">Text-to-Video</SelectItem>
-                    <SelectItem value="i2v">Image-to-Video</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-44 text-sm"><Clock className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="-created_date">Newest First</SelectItem>
-                    <SelectItem value="created_date">Oldest First</SelectItem>
-                    <SelectItem value="-likes">Most Liked</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {loading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {Array.from({ length: 8 }).map((_, index) => <div key={index} className="rounded-xl bg-muted animate-pulse aspect-[9/16]" />)}
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="text-center py-24">
-                <Image className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
-                <p className="text-muted-foreground font-medium mb-2">No private videos found</p>
-                <p className="text-sm text-muted-foreground mb-6">Generate a new test video after publishing this fix. Older ownerless videos remain hidden for privacy.</p>
-                <Link to="/generate"><Button className="gap-2 bg-primary hover:bg-primary/90"><Wand2 className="w-4 h-4" /> Generate Video</Button></Link>
-              </div>
-            ) : (
-              <div className="columns-2 sm:columns-3 md:columns-4 gap-4 space-y-4">
-                {filtered.map((video, index) => (
-                  <motion.div
-                    key={video.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.04 }}
-                    onClick={() => {
-                      const localIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
-                      if (belongsToCurrentUser(video, ownerId, ownerEmail, localIds)) setSelectedVideo(video);
-                    }}
-                    className="break-inside-avoid rounded-xl overflow-hidden border border-border bg-card group shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer mb-4"
-                  >
-                    <div className="relative overflow-hidden bg-black">
-                      <video src={video.video_url} poster={getPoster(video)} muted playsInline preload="metadata" className="w-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors"><PlayCircle className="w-10 h-10 text-white drop-shadow" /></div>
-                      <button onClick={(event) => handleLike(event, video)} className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 hover:bg-black/70 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs transition-all opacity-0 group-hover:opacity-100"><Heart className="w-3 h-3" /> {video.likes || 0}</button>
-                      <div className="absolute bottom-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><Badge className="bg-black/60 text-white border-0 text-xs backdrop-blur-sm">{video.duration || "4s"}</Badge><Badge className="bg-black/60 text-white border-0 text-xs backdrop-blur-sm">{video.aspect_ratio || "9:16"}</Badge></div>
-                    </div>
-                    <div className="p-3">
-                      <p className="text-xs text-foreground leading-relaxed line-clamp-3">{video.prompt}</p>
-                      <div className="flex items-center justify-between mt-2"><span className="text-[10px] text-muted-foreground">{video.resolution}</span><span className="text-[10px] text-muted-foreground uppercase font-medium">{video.mode === "i2v" ? "Image-to-Video" : "Text-to-Video"}</span></div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </>
+        ) : (
+          <div className="columns-2 sm:columns-3 md:columns-4 gap-4 space-y-4">
+            {filtered.map((video, index) => (
+              <motion.div
+                key={video.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.04 }}
+                onClick={() => setSelectedVideo(video)}
+                className="break-inside-avoid rounded-xl overflow-hidden border border-border bg-card group shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer mb-4"
+              >
+                <div className="relative overflow-hidden bg-black">
+                  <video src={video.video_url} poster={getPoster(video)} muted playsInline preload="metadata" className="w-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors"><PlayCircle className="w-10 h-10 text-white drop-shadow" /></div>
+                  <button onClick={(event) => handleLike(event, video)} className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 hover:bg-black/70 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs transition-all opacity-0 group-hover:opacity-100"><Heart className="w-3 h-3" /> {video.likes || 0}</button>
+                  <div className="absolute bottom-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><Badge className="bg-black/60 text-white border-0 text-xs backdrop-blur-sm">{video.duration || "4s"}</Badge><Badge className="bg-black/60 text-white border-0 text-xs backdrop-blur-sm">{video.aspect_ratio || "9:16"}</Badge></div>
+                </div>
+                <div className="p-3">
+                  <p className="text-xs text-foreground leading-relaxed line-clamp-3">{video.prompt}</p>
+                  <div className="flex items-center justify-between mt-2"><span className="text-[10px] text-muted-foreground">{video.resolution}</span><span className="text-[10px] text-muted-foreground uppercase font-medium">{video.mode === "i2v" ? "Image-to-Video" : "Text-to-Video"}</span></div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         )}
       </div>
 
