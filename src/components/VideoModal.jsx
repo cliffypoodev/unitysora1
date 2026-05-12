@@ -34,6 +34,14 @@ function buildAbsoluteUrl(url) {
   }
 }
 
+function getFileExtensionFromUrl(url, mimeType = "") {
+  const cleanUrl = String(url || "").split("?")[0].toLowerCase();
+  if (cleanUrl.endsWith(".gif") || mimeType.includes("gif")) return "gif";
+  if (cleanUrl.endsWith(".webm") || mimeType.includes("webm")) return "webm";
+  if (cleanUrl.endsWith(".mov") || mimeType.includes("quicktime")) return "mov";
+  return "mp4";
+}
+
 async function copyToClipboard(text) {
   if (!text) return false;
 
@@ -67,7 +75,7 @@ export default function VideoModal({ video, onClose, onLike }) {
 
   const showMessage = (message) => {
     setExportMessage(message);
-    window.setTimeout(() => setExportMessage(""), 3200);
+    window.setTimeout(() => setExportMessage(""), 5000);
   };
 
   const handleShare = async () => {
@@ -88,7 +96,7 @@ export default function VideoModal({ video, onClose, onLike }) {
     }
 
     const copied = await copyToClipboard(assetUrl);
-    if (copied) showMessage("Video link copied. Open it in your browser to save/share.");
+    if (copied) showMessage("Video link copied. Use Share / Save or open it from the copied link.");
   };
 
   const handleCopyLink = async () => {
@@ -99,29 +107,47 @@ export default function VideoModal({ video, onClose, onLike }) {
   const handleOpenVideo = () => {
     if (!assetUrl) return;
     window.open(assetUrl, "_blank", "noopener,noreferrer");
-    showMessage("Opened video in a new tab. Use your browser share/save controls.");
+    showMessage("Opened video in a new tab. Use the browser share/save controls there.");
   };
 
   const handleDownload = async () => {
     if (!assetUrl) return;
 
     try {
-      const response = await fetch(assetUrl, { mode: "cors" });
-      if (!response.ok) throw new Error("Download request failed.");
+      const response = await fetch(assetUrl, {
+        method: "GET",
+        mode: "cors",
+        cache: "no-store",
+      });
+
+      if (!response.ok) throw new Error("The file could not be fetched for download.");
 
       const blob = await response.blob();
+      if (!blob || blob.size === 0) throw new Error("The downloaded file was empty.");
+
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const extension = blob.type?.includes("gif") ? "gif" : "mp4";
+      const extension = getFileExtensionFromUrl(assetUrl, blob.type);
       link.href = objectUrl;
       link.download = `unitysora-video-${video.id || Date.now()}.${extension}`;
+      link.rel = "noopener noreferrer";
+      link.style.display = "none";
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(objectUrl);
-      showMessage("Download started. On mobile, check Files/Downloads.");
-    } catch {
-      handleOpenVideo();
+
+      window.setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+      }, 1000);
+
+      showMessage("Download started. On mobile, check Files or Downloads.");
+    } catch (error) {
+      const copied = await copyToClipboard(assetUrl);
+      showMessage(
+        copied
+          ? "Direct download was blocked by the video host/browser. The video link was copied. Use Share / Save or Open Video to save it."
+          : "Direct download was blocked by the video host/browser. Use Share / Save or Open Video instead."
+      );
     }
   };
 
@@ -191,14 +217,14 @@ export default function VideoModal({ video, onClose, onLike }) {
             <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3 shadow-sm">
               <p className="text-xs font-semibold text-foreground mb-1">Save or export video</p>
               <p className="text-xs text-muted-foreground mb-3">
-                On iPhone/iPad, use Share to open the native save/share menu. If direct download does not appear, open the video and use the browser share button.
+                Direct Download now only attempts a real file download. It will not open/play the video as a fallback.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Button type="button" variant="default" size="sm" className="gap-1.5" onClick={handleShare}>
-                  <Share2 className="w-3.5 h-3.5" /> Share / Save
+                <Button type="button" variant="default" size="sm" className="gap-1.5" onClick={handleDownload}>
+                  <Download className="w-3.5 h-3.5" /> Download File
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleDownload}>
-                  <Download className="w-3.5 h-3.5" /> Direct Download
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleShare}>
+                  <Share2 className="w-3.5 h-3.5" /> Share / Save
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleOpenVideo}>
                   <ExternalLink className="w-3.5 h-3.5" /> Open Video
