@@ -1,0 +1,110 @@
+{
+  "name": "GeneratedVideo",
+  "type": "object",
+  "properties": {
+    "prompt": {
+      "type": "string",
+      "description": "Text prompt used to generate the video"
+    },
+    "resolution": {
+      "type": "string",
+      "enum": [
+        "256x256",
+        "360x640",
+        "640x360",
+        "576x1024",
+        "1024x576",
+        "768x768"
+      ],
+      "default": "576x1024"
+    },
+    "aspect_ratio": {
+      "type": "string",
+      "enum": [
+        "9:16",
+        "16:9",
+        "1:1",
+        "4:3",
+        "3:4"
+      ],
+      "default": "9:16"
+    },
+    "duration": {
+      "type": "string",
+      "enum": [
+        "2s",
+        "4s",
+        "8s",
+        "16s"
+      ],
+      "default": "4s"
+    },
+    "motion_score": {
+      "type": "number",
+      "default": 4
+    },
+    "aesthetic_score": {
+      "type": "number",
+      "default": 6.5
+    },
+    "seed": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "generating",
+        "completed",
+        "failed"
+      ],
+      "default": "pending"
+    },
+    "thumbnail_url": {
+      "type": "string"
+    },
+    "video_url": {
+      "type": "string"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "t2v",
+        "i2v"
+      ],
+      "default": "t2v"
+    },
+    "reference_image_url": {
+      "type": "string"
+    },
+    "camera_motion": {
+      "type": "string",
+      "enum": [
+        "none",
+        "pan right",
+        "pan left",
+        "tilt up",
+        "tilt down",
+        "zoom in",
+        "zoom out",
+        "static"
+      ],
+      "default": "none"
+    },
+    "cfg_scale": {
+      "type": "number",
+      "default": 7
+    },
+    "sampling_steps": {
+      "type": "number",
+      "default": 50
+    },
+    "likes": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "prompt"
+  ]
+}
