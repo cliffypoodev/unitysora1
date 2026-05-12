@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Heart, Search, Wand2, Filter, Clock, Image } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import VideoModal from "@/components/VideoModal";
 
 export default function Gallery() {
   const [videos, setVideos] = useState([]);
@@ -14,6 +15,7 @@ export default function Gallery() {
   const [search, setSearch] = useState("");
   const [filterMode, setFilterMode] = useState("all");
   const [sortBy, setSortBy] = useState("-created_date");
+  const [selectedVideo, setSelectedVideo] = useState(null);
 
   useEffect(() => {
     loadVideos();
@@ -27,10 +29,11 @@ export default function Gallery() {
   };
 
   const handleLike = async (e, video) => {
-    e.stopPropagation();
+    if (e && e.stopPropagation) e.stopPropagation();
     const newLikes = (video.likes || 0) + 1;
     await base44.entities.GeneratedVideo.update(video.id, { likes: newLikes });
     setVideos(prev => prev.map(v => v.id === video.id ? { ...v, likes: newLikes } : v));
+    if (selectedVideo?.id === video.id) setSelectedVideo(prev => ({ ...prev, likes: newLikes }));
   };
 
   const filtered = videos.filter(v => {
@@ -121,7 +124,8 @@ export default function Gallery() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className="break-inside-avoid rounded-xl overflow-hidden border border-border bg-card group shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer mb-4"
+                onClick={() => setSelectedVideo(video)}
+              className="break-inside-avoid rounded-xl overflow-hidden border border-border bg-card group shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer mb-4"
               >
                 <div className="relative overflow-hidden bg-black">
                   <img
@@ -159,6 +163,12 @@ export default function Gallery() {
           </div>
         )}
       </div>
+
+      <VideoModal
+        video={selectedVideo}
+        onClose={() => setSelectedVideo(null)}
+        onLike={(video) => handleLike(null, video)}
+      />
     </div>
   );
 }
