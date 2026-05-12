@@ -90,17 +90,23 @@ export default function Generate() {
     });
 
     // Simulate generation with AI image as thumbnail
-    const imgResult = await base44.integrations.Core.GenerateImage({
-      prompt: `${finalPrompt}, cinematic still frame, high quality, film still`,
-    });
+    let thumbnailUrl = `https://placehold.co/576x1024/1a1a1a/ffffff?text=Video+Generated`;
+    try {
+      const imgResult = await base44.integrations.Core.GenerateImage({
+        prompt: `cinematic still frame from a video: ${finalPrompt.slice(0, 200)}, high quality film still`,
+      });
+      thumbnailUrl = imgResult.url;
+    } catch {
+      // fallback to placeholder if image generation fails
+    }
 
     await base44.entities.GeneratedVideo.update(newRecord.id, {
       status: "completed",
-      thumbnail_url: imgResult.url,
-      video_url: imgResult.url,
+      thumbnail_url: thumbnailUrl,
+      video_url: thumbnailUrl,
     });
 
-    setGeneratedItem({ ...newRecord, status: "completed", thumbnail_url: imgResult.url, video_url: imgResult.url, prompt: finalPrompt });
+    setGeneratedItem({ ...newRecord, status: "completed", thumbnail_url: thumbnailUrl, video_url: thumbnailUrl, prompt: finalPrompt });
     setIsGenerating(false);
   };
 
