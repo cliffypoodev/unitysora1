@@ -14,13 +14,24 @@ export default function VideoModal({ video, onClose, onLike }) {
         className="bg-card border border-border rounded-2xl overflow-hidden max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Image */}
+        {/* Video / Image */}
         <div className="relative bg-black">
-          <img
-            src={video.thumbnail_url}
-            alt={video.prompt}
-            className="w-full object-contain max-h-[60vh]"
-          />
+          {video.video_url ? (
+            <video
+              src={video.video_url}
+              controls
+              autoPlay
+              loop
+              className="w-full object-contain max-h-[60vh]"
+              poster={video.thumbnail_url}
+            />
+          ) : (
+            <img
+              src={video.thumbnail_url}
+              alt={video.prompt}
+              className="w-full object-contain max-h-[60vh]"
+            />
+          )}
           <button
             onClick={onClose}
             className="absolute top-3 right-3 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 transition-colors"
