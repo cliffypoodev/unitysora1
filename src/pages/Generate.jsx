@@ -24,7 +24,7 @@ const EXAMPLE_PROMPTS = [
 ];
 
 export default function Generate() {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(() => new URLSearchParams(window.location.search).get("prompt") || "");
   const [mode, setMode] = useState("t2v");
   const [resolution, setResolution] = useState("576x1024");
   const [aspectRatio, setAspectRatio] = useState("9:16");

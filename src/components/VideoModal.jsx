@@ -1,4 +1,4 @@
-import { X, Heart, Download } from "lucide-react";
+import { X, Heart, Download, Copy, Wand2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -54,7 +54,7 @@ export default function VideoModal({ video, onClose, onLike }) {
             )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -63,7 +63,22 @@ export default function VideoModal({ video, onClose, onLike }) {
             >
               <Heart className="w-3.5 h-3.5" /> {video.likes || 0} Likes
             </Button>
-            <a href={video.video_url} target="_blank" rel="noopener noreferrer" download>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => navigator.clipboard.writeText(video.prompt)}
+            >
+              <Copy className="w-3.5 h-3.5" /> Copy Prompt
+            </Button>
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => { window.location.href = `/generate?prompt=${encodeURIComponent(video.prompt)}`; }}
+            >
+              <Wand2 className="w-3.5 h-3.5" /> Use Prompt
+            </Button>
+            <a href={video.video_url || video.thumbnail_url} target="_blank" rel="noopener noreferrer" download>
               <Button variant="outline" size="sm" className="gap-1.5">
                 <Download className="w-3.5 h-3.5" /> Download
               </Button>
