@@ -65,6 +65,7 @@ async function copyToClipboard(text) {
 export default function VideoModal({ video, onClose, onLike }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportMessage, setExportMessage] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   if (!video) return null;
 
@@ -75,28 +76,76 @@ export default function VideoModal({ video, onClose, onLike }) {
 
   const showMessage = (message) => {
     setExportMessage(message);
-    window.setTimeout(() => setExportMessage(""), 5000);
+    window.setTimeout(() => setExportMessage(""), 6500);
+  };
+
+  const makeVideoFile = async () => {
+    const response = await fetch(assetUrl, {
+      method: "GET",
+      mode: "cors",
+      cache: "no-store",
+    });
+
+    if (!response.ok) throw new Error("The video file could not be fetched.");
+
+    const blob = await response.blob();
+    if (!blob || blob.size === 0) throw new Error("The video file was empty.");
+
+    const extension = getFileExtensionFromUrl(assetUrl, blob.type);
+    const fileType = blob.type || (extension === "mov" ? "video/quicktime" : extension === "webm" ? "video/webm" : extension === "gif" ? "image/gif" : "video/mp4");
+
+    return new File([blob], `unitysora-video-${video.id || Date.now()}.${extension}`, { type: fileType });
+  };
+
+  const handleNativeShare = async ({ openFallbackPanel = true } = {}) => {
+    if (!assetUrl || exporting) return;
+
+    setExporting(true);
+
+    try {
+      if (navigator.share) {
+        try {
+          const file = await makeVideoFile();
+          if (!navigator.canShare || navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: "UnitySora video",
+              text: video.prompt || "Generated video",
+              files: [file],
+            });
+            showMessage("iOS share/save menu opened with the video file.");
+            return;
+          }
+        } catch {
+          // Some hosts block file fetches. Fall through to URL sharing.
+        }
+
+        try {
+          await navigator.share({
+            title: "UnitySora video",
+            text: video.prompt || "Generated video",
+            url: assetUrl,
+          });
+          showMessage("iOS share/save menu opened with the video link.");
+          return;
+        } catch (error) {
+          if (error?.name === "AbortError") return;
+        }
+      }
+
+      const copied = await copyToClipboard(assetUrl);
+      if (openFallbackPanel) setExportOpen(true);
+      showMessage(
+        copied
+          ? "The iOS share sheet did not open. The video link was copied. Use Open Video or Copy Link below."
+          : "The iOS share sheet did not open. Use Open Video or Copy Link below."
+      );
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleShare = async () => {
-    if (!assetUrl) return;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "UnitySora video",
-          text: video.prompt || "Generated video",
-          url: assetUrl,
-        });
-        showMessage("Share/export menu opened.");
-        return;
-      } catch (error) {
-        if (error?.name === "AbortError") return;
-      }
-    }
-
-    const copied = await copyToClipboard(assetUrl);
-    if (copied) showMessage("Video link copied. Use Share / Save or open it from the copied link.");
+    await handleNativeShare({ openFallbackPanel: true });
   };
 
   const handleCopyLink = async () => {
@@ -140,13 +189,13 @@ export default function VideoModal({ video, onClose, onLike }) {
         URL.revokeObjectURL(objectUrl);
       }, 1000);
 
-      showMessage("Download started. On mobile, check Files or Downloads.");
-    } catch (error) {
+      showMessage("Download started. On iPhone, check Files or Downloads. If nothing appears, use Share / Save.");
+    } catch {
       const copied = await copyToClipboard(assetUrl);
       showMessage(
         copied
-          ? "Direct download was blocked by the video host/browser. The video link was copied. Use Share / Save or Open Video to save it."
-          : "Direct download was blocked by the video host/browser. Use Share / Save or Open Video instead."
+          ? "Direct download was blocked by iOS or the video host. The video link was copied. Use Share / Save instead."
+          : "Direct download was blocked by iOS or the video host. Use Share / Save instead."
       );
     }
   };
@@ -207,8 +256,9 @@ export default function VideoModal({ video, onClose, onLike }) {
               <Wand2 className="w-3.5 h-3.5" /> Use Prompt
             </Button>
             {canExport && (
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setExportOpen((value) => !value)}>
-                <Share2 className="w-3.5 h-3.5" /> Export / Save
+              <Button variant="outline" size="sm" className="gap-1.5" disabled={exporting} onClick={() => handleNativeShare({ openFallbackPanel: true })}>
+                {exporting ? <Download className="w-3.5 h-3.5 animate-pulse" /> : <Share2 className="w-3.5 h-3.5" />}
+                {exporting ? "Preparing..." : "Export / Save"}
               </Button>
             )}
           </div>
@@ -217,14 +267,14 @@ export default function VideoModal({ video, onClose, onLike }) {
             <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3 shadow-sm">
               <p className="text-xs font-semibold text-foreground mb-1">Save or export video</p>
               <p className="text-xs text-muted-foreground mb-3">
-                Direct Download now only attempts a real file download. It will not open/play the video as a fallback.
+                On iPhone, use Share / Save first. Direct Download depends on whether iOS and the video host allow blob downloads.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Button type="button" variant="default" size="sm" className="gap-1.5" onClick={handleDownload}>
-                  <Download className="w-3.5 h-3.5" /> Download File
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleShare}>
+                <Button type="button" variant="default" size="sm" className="gap-1.5" onClick={handleShare} disabled={exporting}>
                   <Share2 className="w-3.5 h-3.5" /> Share / Save
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleDownload}>
+                  <Download className="w-3.5 h-3.5" /> Download File
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleOpenVideo}>
                   <ExternalLink className="w-3.5 h-3.5" /> Open Video
