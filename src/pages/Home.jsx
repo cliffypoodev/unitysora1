@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
 import { Wand2, ArrowRight, Play, Zap, Globe, Users, BarChart2, Heart } from "lucide-react";
+import VideoModal from "@/components/VideoModal";
 
 const DEMO_VIDEOS = [
 { url: "https://media.base44.com/images/public/6a036e3dc4cd55282c5c04ac/8a3461ba8_github_com_ft_0001_1_1_b592012d.gif", prompt: "A group of anthropomorphic mushrooms having a disco party in the middle of a dark enchanted forest, with glowing neon lights." },
@@ -33,6 +34,7 @@ const NEWS = [
 
 export default function Home() {
   const [recentVideos, setRecentVideos] = useState([]);
+  const [selectedDemo, setSelectedDemo] = useState(null);
 
   useEffect(() => {
     base44.entities.GeneratedVideo.filter({ status: "completed" }, "-created_date", 8).
@@ -92,7 +94,16 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
-              className="break-inside-avoid rounded-xl overflow-hidden border border-border shadow-sm group cursor-pointer bg-card mb-3">
+              className="break-inside-avoid rounded-xl overflow-hidden border border-border shadow-sm group cursor-pointer bg-card mb-3"
+              onClick={() => setSelectedDemo({
+                prompt: demo.prompt,
+                thumbnail_url: demo.url,
+                resolution: "Demo",
+                aspect_ratio: "Preview",
+                duration: "Loop",
+                mode: "t2v",
+                likes: 0
+              })}>
               
                 <div className="relative bg-black overflow-hidden">
                   <img src={demo.url} alt={demo.prompt} className="w-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -223,6 +234,12 @@ export default function Home() {
           </Button>
         </Link>
       </section>
+
+      <VideoModal
+        video={selectedDemo}
+        onClose={() => setSelectedDemo(null)}
+        onLike={() => {}}
+      />
     </div>);
 
 }
