@@ -117,7 +117,7 @@ export default function Home() {
       <section className="py-16 px-4">
         <div className="max-w-[1200px] mx-auto">
           <div className="text-center mb-10">
-            <h2 className="text-2xl font-bold text-foreground mb-2 hidden">Why Open-Sora?</h2>
+            
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {FEATURES.map((f, i) =>
@@ -140,25 +140,25 @@ export default function Home() {
       </section>
 
       {/* News */}
-      <section className="py-16 px-4 bg-muted/20 border-y border-border hidden">
-        <div className="max-w-[1200px] mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-bold text-foreground">📰 News</h2>
-          </div>
-          <div className="space-y-3">
-            {NEWS.map((item, i) =>
-            <div key={i} className="flex gap-4 p-4 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors">
-                <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                <div>
-                  <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded mr-2">[{item.date}]</span>
-                  {item.hot && <span className="text-orange-500 text-sm mr-2">🔥</span>}
-                  <span className="text-sm text-foreground">{item.text}</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      
 
       {/* Recent user-generated videos */}
       {recentVideos.length > 0 &&
@@ -193,25 +193,25 @@ export default function Home() {
       }
 
       {/* Eval charts */}
-      <section className="py-16 px-4 bg-muted/20 border-t border-border hidden">
-        <div className="max-w-[1200px] mx-auto">
-          <h2 className="text-2xl font-bold text-foreground mb-8 text-center">📊 Evaluation</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-xl p-3 border border-border shadow-sm">
-              <p className="text-xs font-medium text-gray-600 text-center mb-2">VBench Score</p>
-              <img src="https://media.base44.com/images/public/6a036e3dc4cd55282c5c04ac/ddbde3e00_github_com_v2_vbench_9df5221a.png" alt="VBench" className="w-full rounded" />
-            </div>
-            <div className="bg-white rounded-xl p-3 border border-border shadow-sm">
-              <p className="text-xs font-medium text-gray-600 text-center mb-2">Human Preference Win Rate</p>
-              <img src="https://media.base44.com/images/public/6a036e3dc4cd55282c5c04ac/f46bfde16_github_com_v2_winrate_3e9b360a.png" alt="Win Rate" className="w-full rounded" />
-            </div>
-            <div className="bg-white rounded-xl p-3 border border-border shadow-sm">
-              <p className="text-xs font-medium text-gray-600 text-center mb-2">Cost Efficiency</p>
-              <img src="https://media.base44.com/images/public/6a036e3dc4cd55282c5c04ac/9f18b0b05_github_com_v2_cost_41a45c58.png" alt="Cost" className="w-full rounded" />
-            </div>
-          </div>
-        </div>
-      </section>
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      
 
       {/* CTA */}
       <section className="py-20 px-4 text-center bg-foreground text-background">
