@@ -2,6 +2,7 @@ import { X, Heart, Copy, Wand2, AlertTriangle, Share2, ExternalLink, Check } fro
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { base44 } from "@/api/base44Client";
 
 function hasPlayableVideo(video) {
   return Boolean(video?.video_url && String(video.video_url).trim());
@@ -50,80 +51,65 @@ async function copyToClipboard(text) {
   }
 }
 
-function getProxyUrls(assetUrl) {
-  const encoded = encodeURIComponent(assetUrl);
-  const origin = window.location.origin;
+function base64ToBlob(base64, mimeType) {
+  const binary = window.atob(base64);
+  const bytes = new Uint8Array(binary.length);
 
-  return [
-    `${origin}/api/functions/videoFileProxy?url=${encoded}`,
-    `${origin}/functions/videoFileProxy?url=${encoded}`,
-  ];
-}
-
-async function fetchProxyBlob(assetUrl) {
-  let lastError = null;
-
-  for (const proxyUrl of getProxyUrls(assetUrl)) {
-    try {
-      const response = await fetch(proxyUrl, {
-        method: "GET",
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Proxy failed with ${response.status}`);
-      }
-
-      const blob = await response.blob();
-
-      if (!blob || blob.size === 0) {
-        throw new Error("Proxy returned an empty file.");
-      }
-
-      return blob;
-    } catch (error) {
-      lastError = error;
-    }
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
   }
 
-  throw lastError || new Error("No video proxy endpoint worked.");
+  return new Blob([bytes], { type: mimeType });
+}
+
+async function invokeVideoFileProxy(payload) {
+  if (base44.integrations?.Core?.InvokeFunction) {
+    return base44.integrations.Core.InvokeFunction({
+      name: "videoFileProxy",
+      data: payload,
+    });
+  }
+
+  if (base44.functions?.videoFileProxy) {
+    return base44.functions.videoFileProxy(payload);
+  }
+
+  if (base44.functions?.invoke) {
+    return base44.functions.invoke("videoFileProxy", payload);
+  }
+
+  if (base44.integrations?.Core?.InvokeBackendFunction) {
+    return base44.integrations.Core.InvokeBackendFunction({
+      name: "videoFileProxy",
+      data: payload,
+    });
+  }
+
+  throw new Error("Video proxy function is unavailable.");
 }
 
 async function buildVideoFile(assetUrl, videoId) {
-  let blob = null;
+  const payload = {
+    url: assetUrl,
+    video_url: assetUrl,
+    return_json: true,
+    return_base64: true,
+  };
 
-  try {
-    blob = await fetchProxyBlob(assetUrl);
-  } catch (proxyError) {
-    console.warn("[UnitySora] Video proxy failed. Trying direct video fetch.", proxyError);
+  const rawResult = await invokeVideoFileProxy(payload);
+  const result = rawResult?.data || rawResult || {};
+  const fileData = result.base64 || result.data?.base64 || result.response?.base64;
 
-    const response = await fetch(assetUrl, {
-      method: "GET",
-      mode: "cors",
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      throw new Error("Could not fetch the video file.");
-    }
-
-    blob = await response.blob();
+  if (!fileData) {
+    throw new Error("Video proxy did not return file data.");
   }
 
-  if (!blob || blob.size === 0) {
-    throw new Error("The video file was empty.");
-  }
+  const extension = result.extension || result.data?.extension || result.response?.extension || getFileExtensionFromUrl(assetUrl);
+  const mimeType = result.mime_type || result.data?.mime_type || result.response?.mime_type || getMimeType(extension);
+  const filename = result.filename || result.data?.filename || result.response?.filename || `unitysora-video-${videoId || Date.now()}.${extension}`;
+  const blob = base64ToBlob(fileData, mimeType);
 
-  const extension = getFileExtensionFromUrl(assetUrl, blob.type);
-  const mimeType = getMimeType(extension, blob.type);
-  const typedBlob =
-    blob.type === mimeType ? blob : new Blob([blob], { type: mimeType });
-
-  return new File(
-    [typedBlob],
-    `unitysora-video-${videoId || Date.now()}.${extension}`,
-    { type: mimeType }
-  );
+  return new File([blob], filename, { type: mimeType });
 }
 
 export default function VideoModal({ video, onClose, onLike }) {
@@ -148,42 +134,24 @@ export default function VideoModal({ video, onClose, onLike }) {
 
     try {
       if (!navigator.share) {
-        const copied = await copyToClipboard(assetUrl);
-        showMessage(copied ? "Video link copied. Open the video and use browser save/share controls." : "Use Open Video to save/share from your browser.");
+        showMessage("Video file could not be prepared on this device.");
         return;
       }
 
-      try {
-        showMessage("Preparing the actual video file for iOS...");
-        const file = await buildVideoFile(assetUrl, video.id);
+      showMessage("Preparing the actual video file for iOS...");
+      const file = await buildVideoFile(assetUrl, video.id);
 
-        if (!navigator.canShare || navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            title: "UnitySora video",
-            text: video.prompt || "Generated video",
-            files: [file],
-          });
-          showMessage("Video file share/save menu opened.");
-          return;
-        }
-      } catch (fileError) {
-        console.warn("[UnitySora] File share failed, falling back to URL share", fileError);
+      await navigator.share({
+        title: "UnitySora video",
+        text: video.prompt || "Generated video",
+        files: [file],
+      });
+      showMessage("Video file share/save menu opened.");
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        console.warn("[UnitySora] Video file share failed", error);
+        showMessage("The video file could not be prepared. Please use Open Video or Copy Link instead.");
       }
-
-      try {
-        await navigator.share({
-          title: "UnitySora video link",
-          text: video.prompt || "Generated video",
-          url: assetUrl,
-        });
-        showMessage("Only the video link could be shared. If Save Video is missing, tap Open Video and use the browser controls.");
-        return;
-      } catch (error) {
-        if (error?.name === "AbortError") return;
-      }
-
-      const copied = await copyToClipboard(assetUrl);
-      showMessage(copied ? "Video link copied. Open the video and use browser save/share controls." : "Use Open Video to save/share from your browser.");
     } finally {
       setSharing(false);
     }
