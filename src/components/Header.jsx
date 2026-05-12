@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Menu, Wand2, Images, BookOpen, Github, X } from "lucide-react";
+import { Menu, Wand2, Images, BookOpen, X } from "lucide-react";
 
 const NAV = [
   { label: "Generate", to: "/generate", icon: Wand2 },
@@ -47,11 +47,7 @@ export default function Header() {
 
         {/* Right */}
         <div className="ml-auto hidden sm:flex items-center gap-3">
-          <a href="https://github.com/hpcaitech/Open-Sora" target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm" className="border-background/30 text-background hover:bg-background/10 gap-1.5 text-sm">
-              <Github className="w-4 h-4" /> GitHub
-            </Button>
-          </a>
+
           <Link to="/generate">
             <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 text-sm font-semibold">
               <Wand2 className="w-3.5 h-3.5" /> Generate
