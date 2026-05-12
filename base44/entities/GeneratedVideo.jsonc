@@ -6,6 +6,18 @@
       "type": "string",
       "description": "Text prompt used to generate the video"
     },
+    "owner_user_id": {
+      "type": "string",
+      "description": "Base44 authenticated user id that owns this video"
+    },
+    "owner_email": {
+      "type": "string",
+      "description": "Authenticated Google/Base44 user email that owns this video"
+    },
+    "owner_name": {
+      "type": "string",
+      "description": "Authenticated user display name at generation time"
+    },
     "resolution": {
       "type": "string",
       "enum": [
