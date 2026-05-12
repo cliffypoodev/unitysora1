@@ -81,12 +81,7 @@ export default function Home() {
                 </Button>
               </a>
             </div>
-            <div className="flex flex-wrap gap-4 justify-center text-sm text-background/70">
-              <span className="flex items-center gap-1.5"><Star className="w-4 h-4 text-yellow-400 fill-yellow-400" /> 29k Stars</span>
-              <span className="flex items-center gap-1.5"><GitFork className="w-4 h-4" /> 2.9k Forks</span>
-              <span className="flex items-center gap-1.5"><Badge className="bg-background/20 text-background border-background/20 text-xs">Apache-2.0</Badge></span>
-              <span className="flex items-center gap-1.5"><Badge className="bg-primary/30 text-background border-primary/20 text-xs">v2.0 Latest</Badge></span>
-            </div>
+
           </motion.div>
         </div>
       </section>
