@@ -1,4 +1,15 @@
-import { X, Heart, Download, Copy, Wand2, AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import {
+  X,
+  Heart,
+  Download,
+  Copy,
+  Wand2,
+  AlertTriangle,
+  Share2,
+  ExternalLink,
+  Check,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -10,11 +21,109 @@ function getPoster(video) {
   return video?.thumbnail_url || video?.reference_image_url || "";
 }
 
+function getAssetUrl(video) {
+  return video?.video_url || video?.thumbnail_url || "";
+}
+
+function buildAbsoluteUrl(url) {
+  if (!url) return "";
+  try {
+    return new URL(url, window.location.origin).href;
+  } catch {
+    return url;
+  }
+}
+
+async function copyToClipboard(text) {
+  if (!text) return false;
+
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return copied;
+  }
+}
+
 export default function VideoModal({ video, onClose, onLike }) {
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportMessage, setExportMessage] = useState("");
+
   if (!video) return null;
 
   const playable = hasPlayableVideo(video);
   const isDemo = !video.id && Boolean(video.thumbnail_url);
+  const assetUrl = buildAbsoluteUrl(getAssetUrl(video));
+  const canExport = Boolean(assetUrl && (playable || isDemo));
+
+  const showMessage = (message) => {
+    setExportMessage(message);
+    window.setTimeout(() => setExportMessage(""), 3200);
+  };
+
+  const handleShare = async () => {
+    if (!assetUrl) return;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "UnitySora video",
+          text: video.prompt || "Generated video",
+          url: assetUrl,
+        });
+        showMessage("Share/export menu opened.");
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+      }
+    }
+
+    const copied = await copyToClipboard(assetUrl);
+    if (copied) showMessage("Video link copied. Open it in your browser to save/share.");
+  };
+
+  const handleCopyLink = async () => {
+    const copied = await copyToClipboard(assetUrl);
+    showMessage(copied ? "Video link copied." : "Could not copy the link on this device.");
+  };
+
+  const handleOpenVideo = () => {
+    if (!assetUrl) return;
+    window.open(assetUrl, "_blank", "noopener,noreferrer");
+    showMessage("Opened video in a new tab. Use your browser share/save controls.");
+  };
+
+  const handleDownload = async () => {
+    if (!assetUrl) return;
+
+    try {
+      const response = await fetch(assetUrl, { mode: "cors" });
+      if (!response.ok) throw new Error("Download request failed.");
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const extension = blob.type?.includes("gif") ? "gif" : "mp4";
+      link.href = objectUrl;
+      link.download = `unitysora-video-${video.id || Date.now()}.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(objectUrl);
+      showMessage("Download started. On mobile, check Files/Downloads.");
+    } catch {
+      handleOpenVideo();
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
@@ -45,6 +154,13 @@ export default function VideoModal({ video, onClose, onLike }) {
             </div>
           )}
 
+          {exportMessage && (
+            <div className="mb-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-700 flex items-start gap-2">
+              <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>{exportMessage}</span>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2 mb-4">
             <Badge variant="outline" className="text-xs">{video.resolution}</Badge>
             <Badge variant="outline" className="text-xs">{video.aspect_ratio}</Badge>
@@ -58,20 +174,41 @@ export default function VideoModal({ video, onClose, onLike }) {
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onLike(video)}>
               <Heart className="w-3.5 h-3.5" /> {video.likes || 0} Likes
             </Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigator.clipboard.writeText(video.prompt || "")}>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => copyToClipboard(video.prompt || "")}>
               <Copy className="w-3.5 h-3.5" /> Copy Prompt
             </Button>
             <Button size="sm" className="gap-1.5" onClick={() => { window.location.href = `/generate?prompt=${encodeURIComponent(video.prompt || "")}`; }}>
               <Wand2 className="w-3.5 h-3.5" /> Use Prompt
             </Button>
-            {(playable || isDemo) && (
-              <a href={video.video_url || video.thumbnail_url} target="_blank" rel="noopener noreferrer" download>
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Download className="w-3.5 h-3.5" /> Download
-                </Button>
-              </a>
+            {canExport && (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setExportOpen((value) => !value)}>
+                <Share2 className="w-3.5 h-3.5" /> Export / Save
+              </Button>
             )}
           </div>
+
+          {canExport && exportOpen && (
+            <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3 shadow-sm">
+              <p className="text-xs font-semibold text-foreground mb-1">Save or export video</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                On iPhone/iPad, use Share to open the native save/share menu. If direct download does not appear, open the video and use the browser share button.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <Button type="button" variant="default" size="sm" className="gap-1.5" onClick={handleShare}>
+                  <Share2 className="w-3.5 h-3.5" /> Share / Save
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleDownload}>
+                  <Download className="w-3.5 h-3.5" /> Direct Download
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleOpenVideo}>
+                  <ExternalLink className="w-3.5 h-3.5" /> Open Video
+                </Button>
+              </div>
+              <Button type="button" variant="ghost" size="sm" className="gap-1.5 mt-2 w-full" onClick={handleCopyLink}>
+                <Copy className="w-3.5 h-3.5" /> Copy Video Link
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
