@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
+import { belongsToCurrentUser, getOwnerFields, readLocalOwnedVideoIds } from "@/lib/videoOwnership";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,17 +26,56 @@ export default function GalleryPrivate() {
   const [filterMode, setFilterMode] = useState("all");
   const [sortBy, setSortBy] = useState("-created_date");
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const { user: contextUser } = useAuth();
+  const [resolvedUser, setResolvedUser] = useState(contextUser || null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveUser() {
+      if (contextUser?.id || contextUser?.email) {
+        setResolvedUser(contextUser);
+        return;
+      }
+
+      try {
+        const currentUser = await base44.auth.me();
+        if (!cancelled) setResolvedUser(currentUser || null);
+      } catch {
+        if (!cancelled) setResolvedUser(null);
+      }
+    }
+
+    resolveUser();
+    return () => { cancelled = true; };
+  }, [contextUser]);
 
   useEffect(() => {
     loadVideos();
-  }, [sortBy]);
+  }, [sortBy, resolvedUser]);
 
   const loadVideos = async () => {
     setLoading(true);
     try {
-      const items = await base44.entities.GeneratedVideo.filter({ status: "completed" }, sortBy, 200);
-      const playable = (items || []).filter(hasPlayableVideo);
-      console.info("[UnitySora] Gallery loaded", { fetched: items?.length || 0, shown: playable.length });
+      const ownerFields = getOwnerFields(resolvedUser);
+      const ownerId = ownerFields.owner_user_id;
+      const ownerEmail = ownerFields.owner_email;
+
+      if (!ownerId && !ownerEmail) {
+        setVideos([]);
+        return;
+      }
+
+      const localOwnedIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
+      const results = await Promise.all([
+        ownerId ? base44.entities.GeneratedVideo.filter({ status: "completed", owner_user_id: ownerId }, sortBy, 200) : Promise.resolve([]),
+        ownerEmail ? base44.entities.GeneratedVideo.filter({ status: "completed", owner_email: ownerEmail }, sortBy, 200) : Promise.resolve([]),
+        ownerEmail ? base44.entities.GeneratedVideo.filter({ status: "completed", created_by: ownerEmail }, sortBy, 200) : Promise.resolve([]),
+      ]);
+
+      const deduped = Array.from(new Map(results.flat().map((item) => [item.id, item])).values());
+      const playable = deduped.filter((video) => hasPlayableVideo(video) && belongsToCurrentUser(video, ownerId, ownerEmail, localOwnedIds));
+      console.info("[UnitySora] Gallery loaded", { fetched: deduped.length, shown: playable.length });
       setVideos(playable);
     } catch (error) {
       console.error("[UnitySora] Gallery load failed", error);
@@ -69,7 +110,7 @@ export default function GalleryPrivate() {
       <div className="max-w-[1400px] mx-auto px-4 py-10">
         <div className="text-center mb-10">
           <h1 className="text-4xl font-bold text-foreground mb-3">Gallery</h1>
-          <p className="text-muted-foreground text-lg mb-1">Generated videos</p>
+          <p className="text-muted-foreground text-lg mb-1">Your generated videos</p>
           <div className="flex justify-center gap-3 mt-4">
             <Link to="/generate">
               <Button className="gap-2 bg-primary hover:bg-primary/90">
@@ -112,7 +153,7 @@ export default function GalleryPrivate() {
           <div className="text-center py-24">
             <Image className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
             <p className="text-muted-foreground font-medium mb-2">No videos found</p>
-            <p className="text-sm text-muted-foreground mb-6">Generate a video, then refresh the gallery.</p>
+            <p className="text-sm text-muted-foreground mb-6">Generate a video to see it here in your private gallery.</p>
             <Link to="/generate"><Button className="gap-2 bg-primary hover:bg-primary/90"><Wand2 className="w-4 h-4" /> Generate Video</Button></Link>
           </div>
         ) : (
