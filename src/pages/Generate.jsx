@@ -89,24 +89,41 @@ export default function Generate() {
       likes: 0,
     });
 
-    // Simulate generation with AI image as thumbnail
+    // Generate actual video
+    let videoUrl = null;
     let thumbnailUrl = `https://placehold.co/576x1024/1a1a1a/ffffff?text=Video+Generated`;
+
     try {
-      const imgResult = await base44.integrations.Core.GenerateImage({
-        prompt: `cinematic still frame from a video: ${finalPrompt.slice(0, 200)}, high quality film still`,
+      const videoResult = await base44.integrations.Core.GenerateVideo({
+        prompt: `cinematic video: ${finalPrompt.slice(0, 300)}`,
+        aspect_ratio: aspectRatio === "9:16" || aspectRatio === "3:4" ? "9:16" : "16:9",
+        duration: parseInt(duration) <= 4 ? 4 : parseInt(duration) <= 6 ? 6 : 8,
       });
-      thumbnailUrl = imgResult.url;
+      videoUrl = videoResult.url;
     } catch {
-      // fallback to placeholder if image generation fails
+      // fallback: generate a thumbnail image instead
+    }
+
+    if (!videoUrl) {
+      try {
+        const imgResult = await base44.integrations.Core.GenerateImage({
+          prompt: `cinematic still frame: ${finalPrompt.slice(0, 200)}, high quality film still`,
+        });
+        thumbnailUrl = imgResult.url;
+      } catch {
+        // keep placeholder
+      }
+    } else {
+      thumbnailUrl = videoUrl;
     }
 
     await base44.entities.GeneratedVideo.update(newRecord.id, {
       status: "completed",
       thumbnail_url: thumbnailUrl,
-      video_url: thumbnailUrl,
+      video_url: videoUrl || null,
     });
 
-    setGeneratedItem({ ...newRecord, status: "completed", thumbnail_url: thumbnailUrl, video_url: thumbnailUrl, prompt: finalPrompt });
+    setGeneratedItem({ ...newRecord, status: "completed", thumbnail_url: thumbnailUrl, video_url: videoUrl || null, prompt: finalPrompt });
     setIsGenerating(false);
   };
 
@@ -395,11 +412,22 @@ export default function Generate() {
                 {generatedItem && !isGenerating && (
                   <div className="w-full">
                     <div className="rounded-lg overflow-hidden border border-border mb-4 bg-black">
-                      <img
-                        src={generatedItem.thumbnail_url}
-                        alt="Generated"
-                        className="w-full object-contain max-h-80"
-                      />
+                      {generatedItem.video_url ? (
+                        <video
+                          src={generatedItem.video_url}
+                          controls
+                          autoPlay
+                          loop
+                          className="w-full object-contain max-h-80"
+                          poster={generatedItem.thumbnail_url}
+                        />
+                      ) : (
+                        <img
+                          src={generatedItem.thumbnail_url}
+                          alt="Generated"
+                          className="w-full object-contain max-h-80"
+                        />
+                      )}
                     </div>
                     <div className="bg-muted/30 rounded-lg p-3 border border-border">
                       <p className="text-xs font-medium text-muted-foreground mb-1">Prompt</p>
