@@ -24,6 +24,22 @@ function buildAbsoluteUrl(url) {
   }
 }
 
+function getFileExtensionFromUrl(url, mimeType = "") {
+  const cleanUrl = String(url || "").split("?")[0].toLowerCase();
+  if (cleanUrl.endsWith(".gif") || mimeType.includes("gif")) return "gif";
+  if (cleanUrl.endsWith(".webm") || mimeType.includes("webm")) return "webm";
+  if (cleanUrl.endsWith(".mov") || mimeType.includes("quicktime")) return "mov";
+  return "mp4";
+}
+
+function getMimeType(extension, blobType = "") {
+  if (blobType && blobType !== "application/octet-stream") return blobType;
+  if (extension === "gif") return "image/gif";
+  if (extension === "webm") return "video/webm";
+  if (extension === "mov") return "video/quicktime";
+  return "video/mp4";
+}
+
 async function copyToClipboard(text) {
   if (!text) return false;
   try {
@@ -32,6 +48,25 @@ async function copyToClipboard(text) {
   } catch {
     return false;
   }
+}
+
+async function buildVideoFile(assetUrl, videoId) {
+  const response = await fetch(assetUrl, {
+    method: "GET",
+    mode: "cors",
+    cache: "no-store",
+  });
+
+  if (!response.ok) throw new Error("Could not fetch the video file.");
+
+  const blob = await response.blob();
+  if (!blob || blob.size === 0) throw new Error("The video file was empty.");
+
+  const extension = getFileExtensionFromUrl(assetUrl, blob.type);
+  const mimeType = getMimeType(extension, blob.type);
+  const typedBlob = blob.type === mimeType ? blob : new Blob([blob], { type: mimeType });
+
+  return new File([typedBlob], `unitysora-video-${videoId || Date.now()}.${extension}`, { type: mimeType });
 }
 
 export default function VideoModal({ video, onClose, onLike }) {
@@ -47,7 +82,7 @@ export default function VideoModal({ video, onClose, onLike }) {
 
   const showMessage = (text) => {
     setMessage(text);
-    window.setTimeout(() => setMessage(""), 4500);
+    window.setTimeout(() => setMessage(""), 5500);
   };
 
   const handleShareSave = async () => {
@@ -55,18 +90,39 @@ export default function VideoModal({ video, onClose, onLike }) {
     setSharing(true);
 
     try {
-      if (navigator.share) {
-        try {
+      if (!navigator.share) {
+        const copied = await copyToClipboard(assetUrl);
+        showMessage(copied ? "Video link copied. Open the video and use browser save/share controls." : "Use Open Video to save/share from your browser.");
+        return;
+      }
+
+      try {
+        showMessage("Preparing the actual video file for iOS...");
+        const file = await buildVideoFile(assetUrl, video.id);
+
+        if (!navigator.canShare || navigator.canShare({ files: [file] })) {
           await navigator.share({
             title: "UnitySora video",
             text: video.prompt || "Generated video",
-            url: assetUrl,
+            files: [file],
           });
-          showMessage("Share/save menu opened.");
+          showMessage("Video file share/save menu opened.");
           return;
-        } catch (error) {
-          if (error?.name === "AbortError") return;
         }
+      } catch (fileError) {
+        console.warn("[UnitySora] File share failed, falling back to URL share", fileError);
+      }
+
+      try {
+        await navigator.share({
+          title: "UnitySora video link",
+          text: video.prompt || "Generated video",
+          url: assetUrl,
+        });
+        showMessage("Only the video link could be shared. If Save Video is missing, tap Open Video and use the browser controls.");
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") return;
       }
 
       const copied = await copyToClipboard(assetUrl);
@@ -122,8 +178,11 @@ export default function VideoModal({ video, onClose, onLike }) {
           {canExport && (
             <div className="mb-4 rounded-xl border border-border bg-muted/30 p-3">
               <Button type="button" size="lg" className="w-full gap-2 bg-primary hover:bg-primary/90" disabled={sharing} onClick={handleShareSave}>
-                <Share2 className="w-4 h-4" /> {sharing ? "Opening Save Options..." : "iOS Share / Save"}
+                <Share2 className="w-4 h-4" /> {sharing ? "Preparing Video File..." : "Save Video / Share File"}
               </Button>
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                This prepares the actual video file so iOS can show Save Video. If iOS blocks file sharing, use Open Video as a fallback.
+              </p>
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleOpenVideo}>
                   <ExternalLink className="w-3.5 h-3.5" /> Open Video
