@@ -18,6 +18,22 @@
       "type": "string",
       "description": "Authenticated user display name at generation time"
     },
+    "user_id": {
+      "type": "string",
+      "description": "Owner user id alias used for private gallery filtering"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "Owner email alias used for private gallery filtering"
+    },
+    "creator_id": {
+      "type": "string",
+      "description": "Creator id alias used for private gallery filtering"
+    },
+    "creator_email": {
+      "type": "string",
+      "description": "Creator email alias used for private gallery filtering"
+    },
     "resolution": {
       "type": "string",
       "enum": [
