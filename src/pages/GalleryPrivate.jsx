@@ -30,6 +30,15 @@ function mergeUniqueVideos(groups) {
   return Array.from(map.values());
 }
 
+function addOwnerScopedQuery(queries, field, value, sortBy) {
+  if (!value) return;
+  queries.push(
+    base44.entities.GeneratedVideo
+      .filter({ status: "completed", [field]: value }, sortBy, 100)
+      .catch(() => [])
+  );
+}
+
 export default function GalleryPrivate() {
   const { user: contextUser, isAuthenticated } = useAuth();
   const [resolvedUser, setResolvedUser] = useState(contextUser || null);
@@ -84,26 +93,51 @@ export default function GalleryPrivate() {
       }
 
       const queries = [];
+      const localIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
 
-      if (ownerId) {
-        queries.push(base44.entities.GeneratedVideo.filter({ status: "completed", owner_user_id: ownerId }, sortBy, 100).catch(() => []));
-      }
+      addOwnerScopedQuery(queries, "owner_user_id", ownerId, sortBy);
+      addOwnerScopedQuery(queries, "user_id", ownerId, sortBy);
+      addOwnerScopedQuery(queries, "creator_id", ownerId, sortBy);
+      addOwnerScopedQuery(queries, "created_by", ownerId, sortBy);
+      addOwnerScopedQuery(queries, "createdBy", ownerId, sortBy);
 
-      if (ownerEmail) {
-        queries.push(base44.entities.GeneratedVideo.filter({ status: "completed", owner_email: ownerEmail }, sortBy, 100).catch(() => []));
+      addOwnerScopedQuery(queries, "owner_email", ownerEmail, sortBy);
+      addOwnerScopedQuery(queries, "user_email", ownerEmail, sortBy);
+      addOwnerScopedQuery(queries, "creator_email", ownerEmail, sortBy);
+      addOwnerScopedQuery(queries, "created_by_email", ownerEmail, sortBy);
+      addOwnerScopedQuery(queries, "createdByEmail", ownerEmail, sortBy);
+
+      if (localIds.size > 0) {
+        queries.push(
+          base44.entities.GeneratedVideo
+            .filter({ status: "completed" }, sortBy, 100)
+            .then((items) => (items || []).filter((video) => localIds.has(String(video?.id || ""))))
+            .catch(() => [])
+        );
       }
 
       const groups = await Promise.all(queries);
       const merged = mergeUniqueVideos(groups);
-      const localIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
       const ownedPlayable = merged.filter((video) => hasPlayableVideo(video) && belongsToCurrentUser(video, ownerId, ownerEmail, localIds));
 
       console.info("[UnitySora] Private gallery loaded", {
         ownerId,
         ownerEmail,
         localOwnedIds: Array.from(localIds),
+        queryCount: queries.length,
         fetched: merged.length,
         shown: ownedPlayable.length,
+        sample: merged.slice(0, 10).map((video) => ({
+          id: video?.id,
+          owner_user_id: video?.owner_user_id,
+          owner_email: video?.owner_email,
+          user_id: video?.user_id,
+          user_email: video?.user_email,
+          creator_id: video?.creator_id,
+          creator_email: video?.creator_email,
+          created_by: video?.created_by,
+          created_by_email: video?.created_by_email,
+        })),
       });
 
       setVideos(ownedPlayable);
@@ -195,8 +229,8 @@ export default function GalleryPrivate() {
             ) : filtered.length === 0 ? (
               <div className="text-center py-24">
                 <Image className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
-                <p className="text-muted-foreground font-medium mb-2">No private videos yet</p>
-                <p className="text-sm text-muted-foreground mb-6">New videos must include your logged-in owner fields before they can appear here.</p>
+                <p className="text-muted-foreground font-medium mb-2">No private videos found</p>
+                <p className="text-sm text-muted-foreground mb-6">Generate a new test video after publishing this fix. Older ownerless videos remain hidden for privacy.</p>
                 <Link to="/generate"><Button className="gap-2 bg-primary hover:bg-primary/90"><Wand2 className="w-4 h-4" /> Generate Video</Button></Link>
               </div>
             ) : (
