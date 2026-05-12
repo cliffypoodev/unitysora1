@@ -45,6 +45,16 @@ function extractVideoUrl(result) {
   return candidates.find((value) => typeof value === "string" && value.trim()) || null;
 }
 
+function buildOwnerAliasFields(ownerFields) {
+  return {
+    ...ownerFields,
+    user_id: ownerFields.owner_user_id,
+    user_email: ownerFields.owner_email,
+    creator_id: ownerFields.owner_user_id,
+    creator_email: ownerFields.owner_email,
+  };
+}
+
 function buildPayload({ mode, prompt, referenceImageUrl, aspectRatio, duration, seed }) {
   const basePrompt = mode === "i2v"
     ? `Image-to-video. Use the uploaded image as the visual reference. User prompt: ${prompt}`
@@ -117,6 +127,7 @@ export default function GeneratePrivate() {
   }, [contextUser]);
 
   const ownerFields = getOwnerFields(resolvedUser);
+  const ownerAliasFields = buildOwnerAliasFields(ownerFields);
   const isSignedIn = Boolean(isAuthenticated || resolvedUser?.id || resolvedUser?.email || ownerFields.owner_user_id);
 
   const [prompt, setPrompt] = useState(() => new URLSearchParams(window.location.search).get("prompt") || "");
@@ -174,10 +185,10 @@ export default function GeneratePrivate() {
       const payload = buildPayload({ mode, prompt: finalPrompt, referenceImageUrl, aspectRatio, duration, seed });
       const route = mode === "i2v" ? "generateImageToVideo" : "Core.GenerateVideo";
 
-      console.info("[UnitySora] Creating private video record", { ownerFields, route });
+      console.info("[UnitySora] Creating private video record", { ownerAliasFields, route });
 
       newRecord = await base44.entities.GeneratedVideo.create({
-        ...ownerFields,
+        ...ownerAliasFields,
         prompt: finalPrompt,
         resolution,
         aspect_ratio: aspectRatio,
@@ -200,7 +211,7 @@ export default function GeneratePrivate() {
       const videoUrl = extractVideoUrl(videoResult);
       if (!videoUrl) throw new Error("The provider did not return a playable video URL.");
 
-      const completedRecord = { status: "completed", thumbnail_url: videoUrl, video_url: videoUrl, error_message: "" };
+      const completedRecord = { status: "completed", thumbnail_url: videoUrl, video_url: videoUrl, source_video_url: videoUrl, error_message: "" };
       await base44.entities.GeneratedVideo.update(newRecord.id, completedRecord);
       rememberLocalOwnedVideoId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
       setGeneratedItem({ ...newRecord, ...completedRecord });
