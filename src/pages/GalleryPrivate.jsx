@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
+import { belongsToCurrentUser, getOwnerEmailFromUser, getOwnerIdFromUser, readLocalOwnedVideoIds } from "@/lib/videoOwnership";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,28 +17,6 @@ function hasPlayableVideo(video) {
 
 function getPoster(video) {
   return video?.thumbnail_url || video?.reference_image_url || "";
-}
-
-function getOwnerId(user) {
-  return String(user?.id || user?.email || user?.uid || user?.sub || "");
-}
-
-function normalize(value) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function belongsToUser(video, ownerId, email) {
-  const expectedOwnerId = normalize(ownerId);
-  const expectedEmail = normalize(email);
-  const videoOwnerId = normalize(video?.owner_user_id);
-  const videoOwnerEmail = normalize(video?.owner_email);
-
-  if (!expectedOwnerId && !expectedEmail) return false;
-  if (videoOwnerId && expectedOwnerId && videoOwnerId === expectedOwnerId) return true;
-  if (videoOwnerId && expectedEmail && videoOwnerId === expectedEmail) return true;
-  if (videoOwnerEmail && expectedEmail && videoOwnerEmail === expectedEmail) return true;
-  if (videoOwnerEmail && expectedOwnerId && videoOwnerEmail === expectedOwnerId) return true;
-  return false;
 }
 
 function mergeUniqueVideos(groups) {
@@ -56,9 +35,10 @@ export default function GalleryPrivate() {
   const [resolvedUser, setResolvedUser] = useState(contextUser || null);
   const [checkingUser, setCheckingUser] = useState(!contextUser);
 
-  const ownerId = getOwnerId(resolvedUser);
-  const ownerEmail = String(resolvedUser?.email || "");
-  const isSignedIn = Boolean(isAuthenticated || resolvedUser?.id || resolvedUser?.email || ownerId);
+  const ownerId = getOwnerIdFromUser(resolvedUser);
+  const ownerEmail = getOwnerEmailFromUser(resolvedUser);
+  const isSignedIn = Boolean(isAuthenticated || resolvedUser?.id || resolvedUser?.email || ownerId || ownerEmail);
+  const localOwnedIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
 
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -114,19 +94,20 @@ export default function GalleryPrivate() {
         queries.push(base44.entities.GeneratedVideo.filter({ status: "completed", owner_email: ownerEmail }, sortBy, 100).catch(() => []));
       }
 
-      // Safety fallback: pull a limited recent set, then client-side filter by owner.
-      // This catches records when Base44 has not indexed new owner fields yet.
       queries.push(base44.entities.GeneratedVideo.filter({ status: "completed" }, sortBy, 100).catch(() => []));
 
       const groups = await Promise.all(queries);
       const merged = mergeUniqueVideos(groups);
-      const ownedPlayable = merged.filter((video) => hasPlayableVideo(video) && belongsToUser(video, ownerId, ownerEmail));
+      const localIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
+      const ownedPlayable = merged.filter((video) => hasPlayableVideo(video) && belongsToCurrentUser(video, ownerId, ownerEmail, localIds));
 
       console.info("[UnitySora] Private gallery loaded", {
         ownerId,
         ownerEmail,
+        localOwnedIds: Array.from(localIds),
         fetched: merged.length,
         shown: ownedPlayable.length,
+        fetchedIds: merged.map((video) => ({ id: video?.id, owner_user_id: video?.owner_user_id, owner_email: video?.owner_email, created_by: video?.created_by })),
       });
 
       setVideos(ownedPlayable);
@@ -140,7 +121,8 @@ export default function GalleryPrivate() {
 
   const handleLike = async (event, video) => {
     if (event?.stopPropagation) event.stopPropagation();
-    if (!belongsToUser(video, ownerId, ownerEmail)) return;
+    const localIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
+    if (!belongsToCurrentUser(video, ownerId, ownerEmail, localIds)) return;
 
     const newLikes = (video.likes || 0) + 1;
     await base44.entities.GeneratedVideo.update(video.id, { likes: newLikes });
@@ -151,7 +133,8 @@ export default function GalleryPrivate() {
   const filtered = videos.filter((video) => {
     const matchSearch = !search || video.prompt?.toLowerCase().includes(search.toLowerCase());
     const matchMode = filterMode === "all" || video.mode === filterMode;
-    return hasPlayableVideo(video) && belongsToUser(video, ownerId, ownerEmail) && matchSearch && matchMode;
+    const localIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
+    return hasPlayableVideo(video) && belongsToCurrentUser(video, ownerId, ownerEmail, localIds) && matchSearch && matchMode;
   });
 
   return (
@@ -217,7 +200,7 @@ export default function GalleryPrivate() {
               <div className="text-center py-24">
                 <Image className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
                 <p className="text-muted-foreground font-medium mb-2">No private videos yet</p>
-                <p className="text-sm text-muted-foreground mb-6">If you just generated one, refresh after the Base44 database finishes saving it.</p>
+                <p className="text-sm text-muted-foreground mb-6">If you just generated one, hard refresh once after publishing the latest fix.</p>
                 <Link to="/generate"><Button className="gap-2 bg-primary hover:bg-primary/90"><Wand2 className="w-4 h-4" /> Generate Video</Button></Link>
               </div>
             ) : (
@@ -228,7 +211,10 @@ export default function GalleryPrivate() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.04 }}
-                    onClick={() => belongsToUser(video, ownerId, ownerEmail) && setSelectedVideo(video)}
+                    onClick={() => {
+                      const localIds = readLocalOwnedVideoIds(ownerId, ownerEmail);
+                      if (belongsToCurrentUser(video, ownerId, ownerEmail, localIds)) setSelectedVideo(video);
+                    }}
                     className="break-inside-avoid rounded-xl overflow-hidden border border-border bg-card group shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer mb-4"
                   >
                     <div className="relative overflow-hidden bg-black">
