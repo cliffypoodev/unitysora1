@@ -56,7 +56,7 @@ export default function Home() {
               className="h-20 w-auto mx-auto mb-6 drop-shadow-2xl"
             />
             <h1 className="text-5xl sm:text-6xl font-bold mb-4 leading-tight">
-              Open-Sora
+              UnitySora
             </h1>
             <p className="text-xl text-background/80 mb-3 max-w-2xl mx-auto leading-relaxed">
               Democratizing Efficient Video Production for All
