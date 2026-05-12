@@ -19,6 +19,16 @@ function getPoster(video) {
   return video?.thumbnail_url || video?.reference_image_url || "";
 }
 
+function isLikelyVideoUrl(url) {
+  const cleanUrl = String(url || "").split("?")[0].toLowerCase();
+  return /\.(mp4|webm|mov|m4v)$/.test(cleanUrl);
+}
+
+function getStillThumbnail(video) {
+  const poster = getPoster(video);
+  return poster && !isLikelyVideoUrl(poster) ? poster : "";
+}
+
 export default function GalleryPrivate() {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -168,7 +178,13 @@ export default function GalleryPrivate() {
                 className="break-inside-avoid rounded-xl overflow-hidden border border-border bg-card group shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer mb-4"
               >
                 <div className="relative overflow-hidden bg-black">
-                  <video src={video.video_url} poster={getPoster(video)} muted playsInline preload="metadata" className="w-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  {getStillThumbnail(video) ? (
+                    <img src={getStillThumbnail(video)} alt={video.prompt || "Generated video"} loading="lazy" className="w-full aspect-[9/16] object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ) : (
+                    <div className="w-full aspect-[9/16] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center p-4">
+                      <p className="text-white/70 text-xs text-center line-clamp-4">{video.prompt}</p>
+                    </div>
+                  )}
                   <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors"><PlayCircle className="w-10 h-10 text-white drop-shadow" /></div>
                   <button onClick={(event) => handleLike(event, video)} className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 hover:bg-black/70 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs transition-all opacity-0 group-hover:opacity-100"><Heart className="w-3 h-3" /> {video.likes || 0}</button>
                   <div className="absolute bottom-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><Badge className="bg-black/60 text-white border-0 text-xs backdrop-blur-sm">{video.duration || "4s"}</Badge><Badge className="bg-black/60 text-white border-0 text-xs backdrop-blur-sm">{video.aspect_ratio || "9:16"}</Badge></div>
