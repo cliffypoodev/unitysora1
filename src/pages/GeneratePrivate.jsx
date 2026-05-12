@@ -2,21 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
+import { getOwnerFields, rememberLocalOwnedVideoId } from "@/lib/videoOwnership";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle2, ImageIcon, Loader2, Sparkles, Upload, Video, Wand2, X } from "lucide-react";
-
-function getOwnerFields(user) {
-  const ownerId = String(user?.id || user?.email || user?.uid || user?.sub || "");
-  return {
-    owner_user_id: ownerId,
-    owner_email: String(user?.email || ""),
-    owner_name: String(user?.full_name || user?.name || user?.displayName || ""),
-  };
-}
 
 function normalizeAspectRatio(aspectRatio) {
   if (aspectRatio === "9:16" || aspectRatio === "3:4") return "9:16";
@@ -182,6 +174,8 @@ export default function GeneratePrivate() {
       const payload = buildPayload({ mode, prompt: finalPrompt, referenceImageUrl, aspectRatio, duration, seed });
       const route = mode === "i2v" ? "generateImageToVideo" : "Core.GenerateVideo";
 
+      console.info("[UnitySora] Creating private video record", { ownerFields, route });
+
       newRecord = await base44.entities.GeneratedVideo.create({
         ...ownerFields,
         prompt: finalPrompt,
@@ -196,6 +190,10 @@ export default function GeneratePrivate() {
         likes: 0,
       });
 
+      if (newRecord?.id) {
+        rememberLocalOwnedVideoId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
+      }
+
       const videoResult = mode === "i2v" ? await callImageToVideo(payload) : await base44.integrations.Core.GenerateVideo(payload);
       if (videoResult?.ok === false) throw new Error(videoResult.error || "Video provider returned an error.");
 
@@ -204,10 +202,12 @@ export default function GeneratePrivate() {
 
       const completedRecord = { status: "completed", thumbnail_url: videoUrl, video_url: videoUrl, error_message: "" };
       await base44.entities.GeneratedVideo.update(newRecord.id, completedRecord);
+      rememberLocalOwnedVideoId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
       setGeneratedItem({ ...newRecord, ...completedRecord });
     } catch (error) {
       const message = error?.message || "Video generation failed.";
       if (newRecord?.id) {
+        rememberLocalOwnedVideoId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
         await base44.entities.GeneratedVideo.update(newRecord.id, {
           status: "failed",
           error_message: message,
