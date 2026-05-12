@@ -50,11 +50,7 @@ export default function Home() {
         </div>
         <div className="max-w-[1200px] mx-auto relative z-10 text-center">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: "easeOut" }}>
-            <img
-              src="https://media.base44.com/images/public/6a036e3dc4cd55282c5c04ac/4589efdb8_github_com_icon_6c4ebda9.png"
-              alt="Open-Sora"
-              className="h-20 w-auto mx-auto mb-6 drop-shadow-2xl"
-            />
+
             <h1 className="text-5xl sm:text-6xl font-bold mb-4 leading-tight">
               UnitySora
             </h1>
