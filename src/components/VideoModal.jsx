@@ -67,9 +67,13 @@ export default function VideoModal({ video, onClose, onLike }) {
   const closeLockRef = useRef(false);
   const messageTimerRef = useRef(null);
 
-  const [exportOpen, setExportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(true);
   const [exportMessage, setExportMessage] = useState("");
   const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    setExportOpen(true);
+  }, [video?.id, video?.video_url, video?.thumbnail_url]);
 
   useEffect(() => {
     return () => {
@@ -91,7 +95,7 @@ export default function VideoModal({ video, onClose, onLike }) {
   const playable = hasPlayableVideo(video);
   const isDemo = !video.id && Boolean(video.thumbnail_url);
   const assetUrl = buildAbsoluteUrl(getAssetUrl(video));
-  const canExport = Boolean(assetUrl && (playable || isDemo));
+  const canExport = Boolean(assetUrl);
 
   const showMessage = (message) => {
     setExportMessage(message);
@@ -121,16 +125,19 @@ export default function VideoModal({ video, onClose, onLike }) {
     }, 30);
   };
 
-  const handleNativeShare = async ({ openFallbackPanel = true } = {}) => {
+  const pausePreview = () => {
+    if (videoRef.current) {
+      try { videoRef.current.pause(); } catch {}
+    }
+  };
+
+  const handleNativeShare = async () => {
     if (!assetUrl || exporting) return;
 
     setExporting(true);
+    pausePreview();
 
     try {
-      if (videoRef.current) {
-        try { videoRef.current.pause(); } catch {}
-      }
-
       if (navigator.share) {
         try {
           await navigator.share({
@@ -138,7 +145,7 @@ export default function VideoModal({ video, onClose, onLike }) {
             text: video.prompt || "Generated video",
             url: assetUrl,
           });
-          showMessage("Share/save menu opened.");
+          showMessage("iOS share/save menu opened.");
           return;
         } catch (error) {
           if (error?.name === "AbortError") return;
@@ -146,19 +153,15 @@ export default function VideoModal({ video, onClose, onLike }) {
       }
 
       const copied = await copyToClipboard(assetUrl);
-      if (openFallbackPanel) setExportOpen(true);
       showMessage(
         copied
-          ? "The share sheet did not open. The video link was copied. Use Open Video or Copy Link below."
-          : "The share sheet did not open. Use Open Video or Copy Link below."
+          ? "Share menu did not open. The video link was copied. Tap Open Video below, then use the browser share/save controls."
+          : "Share menu did not open. Tap Open Video below, then use the browser share/save controls."
       );
     } finally {
       setExporting(false);
+      setExportOpen(true);
     }
-  };
-
-  const handleShare = async () => {
-    await handleNativeShare({ openFallbackPanel: true });
   };
 
   const handleCopyLink = async () => {
@@ -168,9 +171,7 @@ export default function VideoModal({ video, onClose, onLike }) {
 
   const handleOpenVideo = () => {
     if (!assetUrl) return;
-    if (videoRef.current) {
-      try { videoRef.current.pause(); } catch {}
-    }
+    pausePreview();
     window.open(assetUrl, "_blank", "noopener,noreferrer");
     showMessage("Opened video in a new tab. Use the browser share/save controls there.");
   };
@@ -178,12 +179,9 @@ export default function VideoModal({ video, onClose, onLike }) {
   const handleDownload = async () => {
     if (!assetUrl || exporting) return;
     setExporting(true);
+    pausePreview();
 
     try {
-      if (videoRef.current) {
-        try { videoRef.current.pause(); } catch {}
-      }
-
       const response = await fetch(assetUrl, {
         method: "GET",
         mode: "cors",
@@ -210,22 +208,23 @@ export default function VideoModal({ video, onClose, onLike }) {
         URL.revokeObjectURL(objectUrl);
       }, 1000);
 
-      showMessage("Download started. On iPhone, check Files or Downloads. If nothing appears, use Share / Save.");
+      showMessage("Download started. On iPhone, check Files or Downloads. If nothing appears, tap iOS Share / Save.");
     } catch {
       const copied = await copyToClipboard(assetUrl);
       showMessage(
         copied
-          ? "Direct download was blocked by iOS or the video host. The video link was copied. Use Share / Save instead."
-          : "Direct download was blocked by iOS or the video host. Use Share / Save instead."
+          ? "Direct download was blocked by iOS or the video host. The video link was copied. Tap iOS Share / Save instead."
+          : "Direct download was blocked by iOS or the video host. Tap iOS Share / Save instead."
       );
     } finally {
       setExporting(false);
+      setExportOpen(true);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-card border border-border rounded-2xl overflow-hidden max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/70 backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl">
         <div className="relative bg-black">
           {playable ? (
             <video
@@ -234,24 +233,38 @@ export default function VideoModal({ video, onClose, onLike }) {
               controls
               playsInline
               preload="metadata"
-              className="w-full object-contain max-h-[60vh]"
+              className="w-full object-contain max-h-[52vh]"
               poster={getPoster(video)}
             />
           ) : isDemo ? (
-            <img src={video.thumbnail_url} alt={video.prompt} className="w-full object-contain max-h-[60vh]" />
+            <img src={video.thumbnail_url} alt={video.prompt} className="w-full object-contain max-h-[52vh]" />
           ) : (
-            <div className="min-h-[240px] flex flex-col items-center justify-center text-white/80 p-8 text-center">
+            <div className="min-h-[220px] flex flex-col items-center justify-center text-white/80 p-8 text-center">
               <AlertTriangle className="w-10 h-10 mb-3 text-yellow-400" />
               <p className="font-semibold">No playable video URL was returned.</p>
               <p className="text-sm text-white/60 mt-1">This generation should be treated as failed, not completed.</p>
             </div>
           )}
-          <button onClick={safeClose} className="absolute top-3 right-3 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 transition-colors">
+          <button onClick={safeClose} className="absolute top-3 right-3 bg-black/70 hover:bg-black/90 text-white rounded-full p-2 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-5">
+        <div className="p-4 pb-5">
+          {canExport && (
+            <div className="sticky top-0 z-10 -mx-4 mb-4 px-4 py-3 bg-card/95 backdrop-blur border-b border-border">
+              <div className="grid grid-cols-1 gap-2">
+                <Button type="button" size="lg" className="w-full gap-2 bg-primary hover:bg-primary/90" disabled={exporting} onClick={handleNativeShare}>
+                  {exporting ? <Download className="w-4 h-4 animate-pulse" /> : <Share2 className="w-4 h-4" />}
+                  {exporting ? "Preparing Save Options..." : "iOS Share / Save"}
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="w-full gap-2" disabled={exporting} onClick={() => setExportOpen((value) => !value)}>
+                  <ExternalLink className="w-3.5 h-3.5" /> {exportOpen ? "Hide More Export Options" : "More Export Options"}
+                </Button>
+              </div>
+            </div>
+          )}
+
           <p className="text-foreground text-sm leading-relaxed mb-4">{video.prompt}</p>
 
           {video.error_message && (
@@ -286,23 +299,17 @@ export default function VideoModal({ video, onClose, onLike }) {
             <Button size="sm" className="gap-1.5" disabled={exporting} onClick={() => { window.location.href = `/generate?prompt=${encodeURIComponent(video.prompt || "")}`; }}>
               <Wand2 className="w-3.5 h-3.5" /> Use Prompt
             </Button>
-            {canExport && (
-              <Button variant="outline" size="sm" className="gap-1.5" disabled={exporting} onClick={() => handleNativeShare({ openFallbackPanel: true })}>
-                {exporting ? <Download className="w-3.5 h-3.5 animate-pulse" /> : <Share2 className="w-3.5 h-3.5" />}
-                {exporting ? "Preparing..." : "Export / Save"}
-              </Button>
-            )}
           </div>
 
           {canExport && exportOpen && (
             <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3 shadow-sm">
-              <p className="text-xs font-semibold text-foreground mb-1">Save or export video</p>
+              <p className="text-xs font-semibold text-foreground mb-1">More export options</p>
               <p className="text-xs text-muted-foreground mb-3">
-                On iPhone, use Share / Save first. Direct Download is a fallback because iOS may block large in-browser blob downloads.
+                Use iOS Share / Save first. Direct Download is a fallback because iOS may block large in-browser downloads.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Button type="button" variant="default" size="sm" className="gap-1.5" onClick={handleShare} disabled={exporting}>
-                  <Share2 className="w-3.5 h-3.5" /> Share / Save
+                <Button type="button" variant="default" size="sm" className="gap-1.5" onClick={handleNativeShare} disabled={exporting}>
+                  <Share2 className="w-3.5 h-3.5" /> iOS Share / Save
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleDownload} disabled={exporting}>
                   <Download className="w-3.5 h-3.5" /> Download File
