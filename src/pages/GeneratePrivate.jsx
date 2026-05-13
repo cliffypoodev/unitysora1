@@ -133,6 +133,13 @@ export default function GeneratePrivate() {
     const finalPrompt = prompt.trim();
     if (!finalPrompt || isGenerating) return;
 
+    const hasActiveSession = await base44.auth.isAuthenticated();
+    if (!hasActiveSession) {
+      setErrorMessage("Please sign in to generate videos in the published app.");
+      base44.auth.redirectToLogin(window.location.href);
+      return;
+    }
+
     if (!isSignedIn || !ownerFields.owner_user_id) {
       setErrorMessage("Your login is still loading. Wait a moment, then try again.");
       return;
@@ -252,7 +259,11 @@ export default function GeneratePrivate() {
             {checkingUser && <div className="flex items-start gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-sm text-blue-700"><Loader2 className="w-4 h-4 mt-0.5 flex-shrink-0 animate-spin" /><span>Checking your signed-in account...</span></div>}
             {!checkingUser && !isSignedIn && <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-700"><AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" /><span>Sign in is required so videos stay private to your account.</span></div>}
 
-            <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 gap-2">{isGenerating ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating...</> : <><Sparkles className="w-5 h-5" /> Generate Video</>}</Button>
+            {!checkingUser && !isSignedIn ? (
+              <Button onClick={() => base44.auth.redirectToLogin(window.location.href)} className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 gap-2">Sign In to Generate</Button>
+            ) : (
+              <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 gap-2">{isGenerating ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating...</> : <><Sparkles className="w-5 h-5" /> Generate Video</>}</Button>
+            )}
           </div>
 
           <div><div className="border border-border rounded-xl overflow-hidden bg-card min-h-[500px] flex flex-col"><div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/40"><span className="text-sm font-semibold text-foreground flex items-center gap-2"><Video className="w-4 h-4 text-accent" /> Output</span><div className="flex items-center gap-2">{generatedItem?._engineLabel && <Badge className="bg-purple-500/10 text-purple-700 border-purple-500/20 text-xs">{generatedItem._engineLabel}</Badge>}{generatedItem?.video_url && <Badge className="bg-blue-500/10 text-blue-700 border-blue-500/20 text-xs">Audio: {generatedItem._audioRequested ? "On" : "Off"}</Badge>}{generatedItem?.video_url && <Badge className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">Completed</Badge>}{isGenerating && <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 text-xs animate-pulse">Generating...</Badge>}</div></div><div className="flex-1 flex flex-col items-center justify-center p-6">{isGenerating && <div className="text-center"><div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 mx-auto"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div><p className="text-foreground font-medium mb-1">Generating your video...</p><p className="text-sm text-muted-foreground">This may take a minute or two</p></div>}{!isGenerating && !generatedItem && <div className="text-center text-muted-foreground"><Video className="w-12 h-12 mx-auto mb-3 opacity-30" /><p className="text-sm">Your generated video will appear here</p><p className="text-xs mt-1 opacity-70">Only your videos will appear in your gallery.</p></div>}{generatedItem?.video_url && !isGenerating && <div className="w-full"><div className="rounded-lg overflow-hidden border border-border mb-4 bg-black"><video src={generatedItem.video_url} controls autoPlay loop className="w-full object-contain max-h-80" poster={generatedItem.thumbnail_url || generatedItem.reference_image_url} /></div><div className="bg-muted/30 rounded-lg p-3 border border-border"><p className="text-xs font-medium text-muted-foreground mb-1">Prompt</p><p className="text-sm text-foreground leading-relaxed">{generatedItem.prompt}</p></div><div className="mt-4 flex gap-2"><Link to="/gallery" className="flex-1"><Button variant="outline" className="w-full text-sm">View in Gallery</Button></Link></div></div>}</div></div></div>
