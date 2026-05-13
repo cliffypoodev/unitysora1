@@ -195,12 +195,6 @@ async function runAttempt(base44, model, input, headers) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-
-    if (!user) {
-      return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
-
     const input = await req.json();
     if (!input || typeof input.prompt !== "string" || !input.prompt.trim()) {
       return Response.json({ ok: false, error: "Prompt is required." }, { status: 400 });
