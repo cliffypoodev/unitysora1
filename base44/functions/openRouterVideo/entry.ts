@@ -7,8 +7,8 @@ const POLL_INTERVAL_MS = 10000;
 const MAX_POLL_TIME_MS = 8 * 60 * 1000;
 
 const MODEL_CONFIG = {
-  "alibaba/wan-2.6": { label: "Wan 2.6", maxDuration: 15 },
-  "kwaivgi/kling-v3.0-std": { label: "Kling v3.0 Standard", maxDuration: 15 },
+  "alibaba/wan-2.6": { label: "Wan 2.6", supportedDurations: [5, 10] },
+  "kwaivgi/kling-v3.0-std": { label: "Kling v3.0 Standard", supportedDurations: [5, 10] },
 };
 
 function sleep(ms) {
@@ -22,13 +22,10 @@ function normalizeAspectRatio(aspectRatio) {
 }
 
 function normalizeDuration(rawDuration, model) {
-  const parsed = parseInt(String(rawDuration || 8), 10);
-  const maxDuration = MODEL_CONFIG[model]?.maxDuration || 15;
-  if (Number.isNaN(parsed)) return Math.min(8, maxDuration);
-  if (parsed <= 4) return 4;
-  if (parsed <= 8) return 8;
-  if (parsed <= 10) return Math.min(10, maxDuration);
-  return Math.min(15, maxDuration);
+  const parsed = parseInt(String(rawDuration || 10), 10);
+  const supportedDurations = MODEL_CONFIG[model]?.supportedDurations || [5, 10];
+  if (Number.isNaN(parsed)) return 10;
+  return supportedDurations.reduce((closest, value) => Math.abs(value - parsed) < Math.abs(closest - parsed) ? value : closest, supportedDurations[0]);
 }
 
 function normalizeSize(size, aspectRatio) {

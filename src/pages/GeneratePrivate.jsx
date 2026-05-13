@@ -25,12 +25,9 @@ function normalizeAspectRatio(aspectRatio) {
 }
 
 function normalizeDuration(duration) {
-  const parsed = parseInt(String(duration || "8s"), 10);
-  if (Number.isNaN(parsed)) return 8;
-  if (parsed <= 4) return 4;
-  if (parsed <= 8) return 8;
-  if (parsed <= 10) return 10;
-  return 15;
+  const parsed = parseInt(String(duration || "10s"), 10);
+  if (Number.isNaN(parsed)) return 10;
+  return parsed <= 5 ? 5 : 10;
 }
 
 function getGenerationErrorMessage(error) {
@@ -101,7 +98,7 @@ export default function GeneratePrivate() {
   const [mode, setMode] = useState("t2v");
   const [size, setSize] = useState("720x1280");
   const [aspectRatio, setAspectRatio] = useState("9:16");
-  const [duration, setDuration] = useState("8s");
+  const [duration, setDuration] = useState("10s");
   const [generateAudio, setGenerateAudio] = useState(true);
   const [referenceImage, setReferenceImage] = useState(null);
   const [referenceImageUrl, setReferenceImageUrl] = useState("");
@@ -251,7 +248,7 @@ export default function GeneratePrivate() {
             <div className="grid grid-cols-2 gap-4">
               <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Output Size</Label><Select value={size} onValueChange={setSize}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="720x1280">720 × 1280</SelectItem><SelectItem value="1280x720">1280 × 720</SelectItem><SelectItem value="1024x1024">1024 × 1024</SelectItem><SelectItem value="1080x1920">1080 × 1920</SelectItem><SelectItem value="1920x1080">1920 × 1080</SelectItem></SelectContent></Select></div>
               <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Aspect Ratio</Label><Select value={aspectRatio} onValueChange={setAspectRatio}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="9:16">9:16</SelectItem><SelectItem value="16:9">16:9</SelectItem><SelectItem value="1:1">1:1</SelectItem></SelectContent></Select></div>
-              <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Duration</Label><Select value={duration} onValueChange={setDuration}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="4s">4 seconds</SelectItem><SelectItem value="8s">8 seconds</SelectItem><SelectItem value="10s">10 seconds</SelectItem><SelectItem value="15s">15 seconds</SelectItem></SelectContent></Select></div>
+              <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Duration</Label><Select value={duration} onValueChange={setDuration}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="5s">5 seconds</SelectItem><SelectItem value="10s">10 seconds</SelectItem></SelectContent></Select></div>
               <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Generate Audio</Label><div className="grid grid-cols-2 rounded-md border border-input overflow-hidden h-9"><button type="button" onClick={() => setGenerateAudio(true)} className={`text-sm font-medium transition-colors ${generateAudio ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}>On</button><button type="button" onClick={() => setGenerateAudio(false)} className={`text-sm font-medium transition-colors ${!generateAudio ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}>Off</button></div></div>
             </div>
 
