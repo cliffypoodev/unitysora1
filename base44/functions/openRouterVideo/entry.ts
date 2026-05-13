@@ -30,10 +30,16 @@ function normalizeDuration(rawDuration, model) {
 
 function normalizeSize(size, aspectRatio) {
   const value = String(size || "").trim();
-  const allowed = new Set(["1280x720", "720x1280", "1024x1024", "1920x1080", "1080x1920"]);
-  if (allowed.has(value)) return value;
-
   const normalizedAspect = normalizeAspectRatio(aspectRatio);
+  const sizeAspectRatios = {
+    "720x1280": "9:16",
+    "1080x1920": "9:16",
+    "1280x720": "16:9",
+    "1920x1080": "16:9",
+    "1024x1024": "1:1",
+  };
+
+  if (sizeAspectRatios[value] === normalizedAspect) return value;
   if (normalizedAspect === "9:16") return "720x1280";
   if (normalizedAspect === "1:1") return "1024x1024";
   return "1280x720";

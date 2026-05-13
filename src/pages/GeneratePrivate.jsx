@@ -24,10 +24,33 @@ function normalizeAspectRatio(aspectRatio) {
   return "16:9";
 }
 
+const SIZE_ASPECT_RATIO = {
+  "720x1280": "9:16",
+  "1080x1920": "9:16",
+  "1280x720": "16:9",
+  "1920x1080": "16:9",
+  "1024x1024": "1:1",
+};
+
+const DEFAULT_SIZE_BY_ASPECT_RATIO = {
+  "9:16": "720x1280",
+  "16:9": "1280x720",
+  "1:1": "1024x1024",
+};
+
 function normalizeDuration(duration) {
   const parsed = parseInt(String(duration || "10s"), 10);
   if (Number.isNaN(parsed)) return 10;
   return parsed <= 5 ? 5 : 10;
+}
+
+function getAspectRatioForSize(size) {
+  return SIZE_ASPECT_RATIO[size] || "9:16";
+}
+
+function getCompatibleSize(size, aspectRatio) {
+  const normalizedAspectRatio = normalizeAspectRatio(aspectRatio);
+  return SIZE_ASPECT_RATIO[size] === normalizedAspectRatio ? size : DEFAULT_SIZE_BY_ASPECT_RATIO[normalizedAspectRatio];
 }
 
 function getGenerationErrorMessage(error) {
@@ -51,7 +74,7 @@ function buildPayload({ prompt, referenceImageUrl, aspectRatio, duration, size, 
     fallback_model: FALLBACK_MODEL,
     aspect_ratio: normalizeAspectRatio(aspectRatio),
     duration: normalizeDuration(duration),
-    size,
+    size: getCompatibleSize(size, aspectRatio),
     seed,
     generate_audio: generateAudio,
     reference_image_url: referenceImageUrl || "",
@@ -156,12 +179,14 @@ export default function GeneratePrivate() {
     try {
       const seed = Math.floor(Math.random() * 999999);
       const safeDuration = `${normalizeDuration(duration)}s`;
+      const safeAspectRatio = normalizeAspectRatio(aspectRatio);
+      const safeSize = getCompatibleSize(size, safeAspectRatio);
       const payload = buildPayload({
         prompt: finalPrompt,
         referenceImageUrl: mode === "i2v" ? referenceImageUrl : "",
-        aspectRatio,
+        aspectRatio: safeAspectRatio,
         duration: safeDuration,
-        size,
+        size: safeSize,
         seed,
         generateAudio,
       });
@@ -169,8 +194,8 @@ export default function GeneratePrivate() {
       newRecord = await base44.entities.GeneratedVideo.create({
         ...ownerFields,
         prompt: finalPrompt,
-        resolution: size,
-        aspect_ratio: aspectRatio,
+        resolution: safeSize,
+        aspect_ratio: safeAspectRatio,
         duration: safeDuration,
         seed,
         status: "generating",
@@ -246,8 +271,8 @@ export default function GeneratePrivate() {
             )}
 
             <div className="grid grid-cols-2 gap-4">
-              <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Output Size</Label><Select value={size} onValueChange={setSize}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="720x1280">720 × 1280</SelectItem><SelectItem value="1280x720">1280 × 720</SelectItem><SelectItem value="1024x1024">1024 × 1024</SelectItem><SelectItem value="1080x1920">1080 × 1920</SelectItem><SelectItem value="1920x1080">1920 × 1080</SelectItem></SelectContent></Select></div>
-              <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Aspect Ratio</Label><Select value={aspectRatio} onValueChange={setAspectRatio}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="9:16">9:16</SelectItem><SelectItem value="16:9">16:9</SelectItem><SelectItem value="1:1">1:1</SelectItem></SelectContent></Select></div>
+              <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Output Size</Label><Select value={size} onValueChange={(value) => { setSize(value); setAspectRatio(getAspectRatioForSize(value)); }}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="720x1280">720 × 1280</SelectItem><SelectItem value="1280x720">1280 × 720</SelectItem><SelectItem value="1024x1024">1024 × 1024</SelectItem><SelectItem value="1080x1920">1080 × 1920</SelectItem><SelectItem value="1920x1080">1920 × 1080</SelectItem></SelectContent></Select></div>
+              <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Aspect Ratio</Label><Select value={aspectRatio} onValueChange={(value) => { setAspectRatio(value); setSize(getCompatibleSize(size, value)); }}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="9:16">9:16</SelectItem><SelectItem value="16:9">16:9</SelectItem><SelectItem value="1:1">1:1</SelectItem></SelectContent></Select></div>
               <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Duration</Label><Select value={duration} onValueChange={setDuration}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="5s">5 seconds</SelectItem><SelectItem value="10s">10 seconds</SelectItem></SelectContent></Select></div>
               <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Generate Audio</Label><div className="grid grid-cols-2 rounded-md border border-input overflow-hidden h-9"><button type="button" onClick={() => setGenerateAudio(true)} className={`text-sm font-medium transition-colors ${generateAudio ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}>On</button><button type="button" onClick={() => setGenerateAudio(false)} className={`text-sm font-medium transition-colors ${!generateAudio ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}>Off</button></div></div>
             </div>
