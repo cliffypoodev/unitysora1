@@ -47,7 +47,7 @@ function extractVideoUrl(result) {
   return candidates.find((value) => typeof value === "string" && value.trim()) || null;
 }
 
-function buildPayload({ prompt, referenceImageUrl, aspectRatio, duration, size, seed }) {
+function buildPayload({ prompt, referenceImageUrl, aspectRatio, duration, size, seed, generateAudio }) {
   return {
     prompt,
     preferred_model: PRIMARY_MODEL,
@@ -56,7 +56,7 @@ function buildPayload({ prompt, referenceImageUrl, aspectRatio, duration, size, 
     duration: normalizeDuration(duration),
     size,
     seed,
-    generate_audio: false,
+    generate_audio: generateAudio,
     reference_image_url: referenceImageUrl || "",
   };
 }
@@ -102,6 +102,7 @@ export default function GeneratePrivate() {
   const [size, setSize] = useState("720x1280");
   const [aspectRatio, setAspectRatio] = useState("9:16");
   const [duration, setDuration] = useState("8s");
+  const [generateAudio, setGenerateAudio] = useState(true);
   const [referenceImage, setReferenceImage] = useState(null);
   const [referenceImageUrl, setReferenceImageUrl] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -158,6 +159,7 @@ export default function GeneratePrivate() {
         duration: safeDuration,
         size,
         seed,
+        generateAudio,
       });
 
       newRecord = await base44.entities.GeneratedVideo.create({
@@ -170,7 +172,7 @@ export default function GeneratePrivate() {
         status: "generating",
         mode,
         reference_image_url: mode === "i2v" ? referenceImageUrl : undefined,
-        generation_payload_debug: JSON.stringify({ route: "openRouterVideo", preferred_model: PRIMARY_MODEL, fallback_model: FALLBACK_MODEL, owner_user_id: ownerFields.owner_user_id, owner_email: ownerFields.owner_email, payload }),
+        generation_payload_debug: JSON.stringify({ route: "openRouterVideo", preferred_model: PRIMARY_MODEL, fallback_model: FALLBACK_MODEL, generate_audio: generateAudio, owner_user_id: ownerFields.owner_user_id, owner_email: ownerFields.owner_email, payload }),
         likes: 0,
       });
 
@@ -186,7 +188,7 @@ export default function GeneratePrivate() {
       const completedRecord = { status: "completed", thumbnail_url: videoUrl, video_url: videoUrl, source_video_url: videoUrl, error_message: "" };
       await base44.entities.GeneratedVideo.update(newRecord.id, completedRecord);
       rememberLocalOwnedVideoId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
-      setGeneratedItem({ ...newRecord, ...completedRecord, _engine: videoResult.model_used || PRIMARY_MODEL, _engineLabel: MODEL_LABELS[videoResult.model_used] || videoResult.model_used || "OpenRouter Video" });
+      setGeneratedItem({ ...newRecord, ...completedRecord, _engine: videoResult.model_used || PRIMARY_MODEL, _engineLabel: MODEL_LABELS[videoResult.model_used] || videoResult.model_used || "OpenRouter Video", _audioRequested: generateAudio });
     } catch (error) {
       const message = getGenerationErrorMessage(error);
       if (newRecord?.id) {
@@ -243,6 +245,7 @@ export default function GeneratePrivate() {
               <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Output Size</Label><Select value={size} onValueChange={setSize}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="720x1280">720 × 1280</SelectItem><SelectItem value="1280x720">1280 × 720</SelectItem><SelectItem value="1024x1024">1024 × 1024</SelectItem><SelectItem value="1080x1920">1080 × 1920</SelectItem><SelectItem value="1920x1080">1920 × 1080</SelectItem></SelectContent></Select></div>
               <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Aspect Ratio</Label><Select value={aspectRatio} onValueChange={setAspectRatio}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="9:16">9:16</SelectItem><SelectItem value="16:9">16:9</SelectItem><SelectItem value="1:1">1:1</SelectItem></SelectContent></Select></div>
               <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Duration</Label><Select value={duration} onValueChange={setDuration}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="4s">4 seconds</SelectItem><SelectItem value="8s">8 seconds</SelectItem><SelectItem value="10s">10 seconds</SelectItem><SelectItem value="15s">15 seconds</SelectItem></SelectContent></Select></div>
+              <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Generate Audio</Label><div className="grid grid-cols-2 rounded-md border border-input overflow-hidden h-9"><button type="button" onClick={() => setGenerateAudio(true)} className={`text-sm font-medium transition-colors ${generateAudio ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}>On</button><button type="button" onClick={() => setGenerateAudio(false)} className={`text-sm font-medium transition-colors ${!generateAudio ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}>Off</button></div></div>
             </div>
 
             {errorMessage && <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700"><AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" /><span>{errorMessage}</span></div>}
@@ -252,7 +255,7 @@ export default function GeneratePrivate() {
             <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 gap-2">{isGenerating ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating...</> : <><Sparkles className="w-5 h-5" /> Generate Video</>}</Button>
           </div>
 
-          <div><div className="border border-border rounded-xl overflow-hidden bg-card min-h-[500px] flex flex-col"><div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/40"><span className="text-sm font-semibold text-foreground flex items-center gap-2"><Video className="w-4 h-4 text-accent" /> Output</span><div className="flex items-center gap-2">{generatedItem?._engineLabel && <Badge className="bg-purple-500/10 text-purple-700 border-purple-500/20 text-xs">{generatedItem._engineLabel}</Badge>}{generatedItem?.video_url && <Badge className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">Completed</Badge>}{isGenerating && <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 text-xs animate-pulse">Generating...</Badge>}</div></div><div className="flex-1 flex flex-col items-center justify-center p-6">{isGenerating && <div className="text-center"><div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 mx-auto"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div><p className="text-foreground font-medium mb-1">Generating your video...</p><p className="text-sm text-muted-foreground">This may take a minute or two</p></div>}{!isGenerating && !generatedItem && <div className="text-center text-muted-foreground"><Video className="w-12 h-12 mx-auto mb-3 opacity-30" /><p className="text-sm">Your generated video will appear here</p><p className="text-xs mt-1 opacity-70">Only your videos will appear in your gallery.</p></div>}{generatedItem?.video_url && !isGenerating && <div className="w-full"><div className="rounded-lg overflow-hidden border border-border mb-4 bg-black"><video src={generatedItem.video_url} controls autoPlay loop className="w-full object-contain max-h-80" poster={generatedItem.thumbnail_url || generatedItem.reference_image_url} /></div><div className="bg-muted/30 rounded-lg p-3 border border-border"><p className="text-xs font-medium text-muted-foreground mb-1">Prompt</p><p className="text-sm text-foreground leading-relaxed">{generatedItem.prompt}</p></div><div className="mt-4 flex gap-2"><Link to="/gallery" className="flex-1"><Button variant="outline" className="w-full text-sm">View in Gallery</Button></Link></div></div>}</div></div></div>
+          <div><div className="border border-border rounded-xl overflow-hidden bg-card min-h-[500px] flex flex-col"><div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/40"><span className="text-sm font-semibold text-foreground flex items-center gap-2"><Video className="w-4 h-4 text-accent" /> Output</span><div className="flex items-center gap-2">{generatedItem?._engineLabel && <Badge className="bg-purple-500/10 text-purple-700 border-purple-500/20 text-xs">{generatedItem._engineLabel}</Badge>}{generatedItem?.video_url && <Badge className="bg-blue-500/10 text-blue-700 border-blue-500/20 text-xs">Audio: {generatedItem._audioRequested ? "On" : "Off"}</Badge>}{generatedItem?.video_url && <Badge className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">Completed</Badge>}{isGenerating && <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 text-xs animate-pulse">Generating...</Badge>}</div></div><div className="flex-1 flex flex-col items-center justify-center p-6">{isGenerating && <div className="text-center"><div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 mx-auto"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div><p className="text-foreground font-medium mb-1">Generating your video...</p><p className="text-sm text-muted-foreground">This may take a minute or two</p></div>}{!isGenerating && !generatedItem && <div className="text-center text-muted-foreground"><Video className="w-12 h-12 mx-auto mb-3 opacity-30" /><p className="text-sm">Your generated video will appear here</p><p className="text-xs mt-1 opacity-70">Only your videos will appear in your gallery.</p></div>}{generatedItem?.video_url && !isGenerating && <div className="w-full"><div className="rounded-lg overflow-hidden border border-border mb-4 bg-black"><video src={generatedItem.video_url} controls autoPlay loop className="w-full object-contain max-h-80" poster={generatedItem.thumbnail_url || generatedItem.reference_image_url} /></div><div className="bg-muted/30 rounded-lg p-3 border border-border"><p className="text-xs font-medium text-muted-foreground mb-1">Prompt</p><p className="text-sm text-foreground leading-relaxed">{generatedItem.prompt}</p></div><div className="mt-4 flex gap-2"><Link to="/gallery" className="flex-1"><Button variant="outline" className="w-full text-sm">View in Gallery</Button></Link></div></div>}</div></div></div>
         </div>
       </div>
     </div>
