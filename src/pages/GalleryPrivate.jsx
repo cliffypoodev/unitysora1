@@ -181,9 +181,7 @@ export default function GalleryPrivate() {
                   {getStillThumbnail(video) ? (
                     <img src={getStillThumbnail(video)} alt={video.prompt || "Generated video"} loading="lazy" className="w-full aspect-[9/16] object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
-                    <div className="w-full aspect-[9/16] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center p-4">
-                      <p className="text-white/70 text-xs text-center line-clamp-4">{video.prompt}</p>
-                    </div>
+                    <video src={video.video_url} muted playsInline preload="metadata" className="w-full aspect-[9/16] object-cover group-hover:scale-105 transition-transform duration-500 pointer-events-none" />
                   )}
                   <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors"><PlayCircle className="w-10 h-10 text-white drop-shadow" /></div>
                   <button onClick={(event) => handleLike(event, video)} className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 hover:bg-black/70 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs transition-all opacity-0 group-hover:opacity-100"><Heart className="w-3 h-3" /> {video.likes || 0}</button>
