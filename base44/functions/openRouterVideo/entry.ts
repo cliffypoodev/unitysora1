@@ -135,7 +135,20 @@ function extractPlayableUrl(statusData) {
   return null;
 }
 
-async function runAttempt(model, input, headers) {
+async function copyVideoToAppStorage(base44, sourceUrl, headers, id) {
+  const response = await fetch(sourceUrl, { headers });
+  if (!response.ok) throw new Error(`Generated video could not be downloaded from OpenRouter (${response.status}).`);
+
+  const blob = await response.blob();
+  if (!blob || blob.size === 0) throw new Error("Generated video download was empty.");
+
+  const file = new File([blob], `openrouter-video-${id || Date.now()}.mp4`, { type: blob.type || "video/mp4" });
+  const uploaded = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+  if (!uploaded?.file_url) throw new Error("Generated video could not be saved to app storage.");
+  return uploaded.file_url;
+}
+
+async function runAttempt(base44, model, input, headers) {
   const requestBody = buildVideoRequest({
     model,
     prompt: input.prompt,
@@ -153,6 +166,8 @@ async function runAttempt(model, input, headers) {
 
   if (!playableUrl) throw new Error("OpenRouter completed, but unsigned_urls[0] was not returned.");
 
+  const storedVideoUrl = await copyVideoToAppStorage(base44, playableUrl, headers, finished.id || submitted.id);
+
   return {
     ok: true,
     model_used: model,
@@ -160,8 +175,8 @@ async function runAttempt(model, input, headers) {
     id: finished.id || submitted.id,
     polling_url: submitted.polling_url,
     status: finished.status || "completed",
-    video_url: playableUrl,
-    thumbnail_url: playableUrl,
+    video_url: storedVideoUrl,
+    thumbnail_url: storedVideoUrl,
     source_video_url: playableUrl,
     generate_audio: Boolean(input.generate_audio),
     debug: {
@@ -199,7 +214,7 @@ Deno.serve(async (req) => {
 
     for (const model of orderedModels) {
       try {
-        const result = await runAttempt(model, input, headers);
+        const result = await runAttempt(base44, model, input, headers);
         return Response.json({ ok: true, ...result, attempted_models: [...errors.map((item) => item.model), model] });
       } catch (error) {
         errors.push({ model, error: error?.message || "Unknown model failure." });
