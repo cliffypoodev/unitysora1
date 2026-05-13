@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Clock, Filter, Heart, Image, Loader2, PlayCircle, Search, Wand2 } from "lucide-react";
 import VideoModal from "@/components/VideoModal";
+import GalleryVideoThumbnail from "@/components/gallery/GalleryVideoThumbnail";
 
 function hasPlayableVideo(video) {
   return Boolean(video?.video_url && String(video.video_url).trim());
@@ -24,9 +25,10 @@ function isLikelyVideoUrl(url) {
   return /\.(mp4|webm|mov|m4v)$/.test(cleanUrl);
 }
 
-function getStillThumbnail(video) {
-  const poster = getPoster(video);
-  return poster && !isLikelyVideoUrl(poster) ? poster : "";
+function getDisplayDuration(duration) {
+  const seconds = parseInt(String(duration || "4s"), 10);
+  if (Number.isNaN(seconds)) return "4s";
+  return `${Math.min(seconds, 8)}s`;
 }
 
 export default function GalleryPrivate() {
@@ -178,14 +180,10 @@ export default function GalleryPrivate() {
                 className="break-inside-avoid rounded-xl overflow-hidden border border-border bg-card group shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer mb-4"
               >
                 <div className="relative overflow-hidden bg-black">
-                  {getStillThumbnail(video) ? (
-                    <img src={getStillThumbnail(video)} alt={video.prompt || "Generated video"} loading="lazy" className="w-full aspect-[9/16] object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <video src={video.video_url} muted playsInline preload="metadata" className="w-full aspect-[9/16] object-cover group-hover:scale-105 transition-transform duration-500 pointer-events-none" />
-                  )}
+                  <GalleryVideoThumbnail video={video} />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors"><PlayCircle className="w-10 h-10 text-white drop-shadow" /></div>
                   <button onClick={(event) => handleLike(event, video)} className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 hover:bg-black/70 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs transition-all opacity-0 group-hover:opacity-100"><Heart className="w-3 h-3" /> {video.likes || 0}</button>
-                  <div className="absolute bottom-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><Badge className="bg-black/60 text-white border-0 text-xs backdrop-blur-sm">{video.duration || "4s"}</Badge><Badge className="bg-black/60 text-white border-0 text-xs backdrop-blur-sm">{video.aspect_ratio || "9:16"}</Badge></div>
+                  <div className="absolute bottom-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><Badge className="bg-black/60 text-white border-0 text-xs backdrop-blur-sm">{getDisplayDuration(video.duration)}</Badge><Badge className="bg-black/60 text-white border-0 text-xs backdrop-blur-sm">{video.aspect_ratio || "9:16"}</Badge></div>
                 </div>
                 <div className="p-3">
                   <p className="text-xs text-foreground leading-relaxed line-clamp-3">{video.prompt}</p>

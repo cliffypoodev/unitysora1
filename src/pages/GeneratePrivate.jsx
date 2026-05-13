@@ -21,8 +21,7 @@ function normalizeDuration(duration) {
   if (Number.isNaN(parsed)) return 4;
   if (parsed <= 2) return 2;
   if (parsed <= 4) return 4;
-  if (parsed <= 8) return 8;
-  return 16;
+  return 8;
 }
 
 function extractVideoUrl(result) {
@@ -159,7 +158,8 @@ export default function GeneratePrivate() {
 
     try {
       const seed = Math.floor(Math.random() * 999999);
-      const payload = buildPayload({ mode, prompt: finalPrompt, referenceImageUrl, aspectRatio, duration, seed });
+      const safeDuration = `${normalizeDuration(duration)}s`;
+      const payload = buildPayload({ mode, prompt: finalPrompt, referenceImageUrl, aspectRatio, duration: safeDuration, seed });
       const route = mode === "i2v" ? "generateImageToVideo" : "Core.GenerateVideo";
 
       newRecord = await base44.entities.GeneratedVideo.create({
@@ -167,7 +167,7 @@ export default function GeneratePrivate() {
         prompt: finalPrompt,
         resolution,
         aspect_ratio: aspectRatio,
-        duration,
+        duration: safeDuration,
         seed,
         status: "generating",
         mode,
@@ -224,7 +224,7 @@ export default function GeneratePrivate() {
             <div className="grid grid-cols-2 gap-4">
               <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Resolution</Label><Select value={resolution} onValueChange={setResolution}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="256x256">256×256</SelectItem><SelectItem value="360x640">360×640</SelectItem><SelectItem value="576x1024">576×1024</SelectItem><SelectItem value="640x360">640×360</SelectItem><SelectItem value="1024x576">1024×576</SelectItem><SelectItem value="768x768">768×768</SelectItem></SelectContent></Select></div>
               <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Aspect Ratio</Label><Select value={aspectRatio} onValueChange={setAspectRatio}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="9:16">9:16</SelectItem><SelectItem value="16:9">16:9</SelectItem><SelectItem value="1:1">1:1</SelectItem><SelectItem value="4:3">4:3</SelectItem><SelectItem value="3:4">3:4</SelectItem></SelectContent></Select></div>
-              <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Duration</Label><Select value={duration} onValueChange={setDuration}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="2s">2 seconds</SelectItem><SelectItem value="4s">4 seconds</SelectItem><SelectItem value="8s">8 seconds</SelectItem><SelectItem value="16s">16 seconds</SelectItem></SelectContent></Select></div>
+              <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Duration</Label><Select value={duration} onValueChange={setDuration}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="2s">2 seconds</SelectItem><SelectItem value="4s">4 seconds</SelectItem><SelectItem value="8s">8 seconds</SelectItem></SelectContent></Select></div>
             </div>
 
             {errorMessage && <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700"><AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" /><span>{errorMessage}</span></div>}
