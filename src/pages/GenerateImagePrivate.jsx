@@ -110,9 +110,9 @@ export default function GenerateImagePrivate() {
     try {
       const payload = {
         prompt: finalPrompt,
-        width: size.width,
-        height: size.height,
-        steps: selectedSteps,
+        width: 512,
+        height: 512,
+        steps: 6,
       };
 
       const imageOwnerFields = {
