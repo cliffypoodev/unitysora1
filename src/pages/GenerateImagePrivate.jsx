@@ -142,7 +142,7 @@ export default function GenerateImagePrivate() {
 
       if (newRecord?.id) rememberLocalOwnedImageId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
 
-      const response = await fetch("http://127.0.0.1:8787/generate-image", {
+      const response = await fetch("https://suggestions-entrepreneur-connecting-nasa.trycloudflare.com/generate-image", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
