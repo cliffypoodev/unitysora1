@@ -46,6 +46,16 @@ export default function Header() {
         </nav>
 
         <div className="ml-auto hidden sm:flex items-center gap-2">
+          <Link to="/gallery">
+            <Button size="sm" variant="ghost" className="text-background hover:bg-background/10 gap-1.5 text-sm font-semibold">
+              <Images className="w-3.5 h-3.5" /> Videos
+            </Button>
+          </Link>
+          <Link to="/image-gallery">
+            <Button size="sm" variant="ghost" className="text-background hover:bg-background/10 gap-1.5 text-sm font-semibold">
+              <Images className="w-3.5 h-3.5" /> Images
+            </Button>
+          </Link>
           <Link to="/generate">
             <Button size="sm" variant="outline" className="border-background/20 text-background hover:bg-background/10 gap-1.5 text-sm font-semibold">
               <Video className="w-3.5 h-3.5" /> Video
