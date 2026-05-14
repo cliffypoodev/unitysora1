@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, Filter, Heart, Image, Loader2, PlayCircle, Search, Wand2 } from "lucide-react";
+import { CheckSquare, Clock, Filter, Heart, Image, Loader2, PlayCircle, Search, Square, Trash2, Wand2, X } from "lucide-react";
 import VideoModal from "@/components/VideoModal";
 import GalleryVideoThumbnail from "@/components/gallery/GalleryVideoThumbnail";
 
@@ -38,6 +38,7 @@ export default function GalleryPrivate() {
   const [filterMode, setFilterMode] = useState("all");
   const [sortBy, setSortBy] = useState("-created_date");
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const [selectedVideoIds, setSelectedVideoIds] = useState(new Set());
   const { user: contextUser } = useAuth();
   const [resolvedUser, setResolvedUser] = useState(contextUser || null);
 
@@ -117,6 +118,35 @@ export default function GalleryPrivate() {
     });
   }, [videos, search, filterMode]);
 
+  const selectedCount = selectedVideoIds.size;
+  const allFilteredSelected = filtered.length > 0 && filtered.every((video) => selectedVideoIds.has(video.id));
+
+  const toggleVideoSelection = (event, videoId) => {
+    event.stopPropagation();
+    setSelectedVideoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(videoId)) next.delete(videoId);
+      else next.add(videoId);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedVideoIds(allFilteredSelected ? new Set() : new Set(filtered.map((video) => video.id)));
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedCount === 0) return;
+    const confirmed = window.confirm(`Delete ${selectedCount} selected video${selectedCount === 1 ? "" : "s"}? This cannot be undone.`);
+    if (!confirmed) return;
+
+    const idsToDelete = Array.from(selectedVideoIds);
+    await Promise.all(idsToDelete.map((id) => base44.entities.GeneratedVideo.delete(id)));
+    setVideos((prev) => prev.filter((video) => !selectedVideoIds.has(video.id)));
+    if (selectedVideo && selectedVideoIds.has(selectedVideo.id)) setSelectedVideo(null);
+    setSelectedVideoIds(new Set());
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-[1400px] mx-auto px-4 py-10">
@@ -157,6 +187,25 @@ export default function GalleryPrivate() {
           </div>
         </div>
 
+        {filtered.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-6">
+            <Button type="button" variant="outline" size="sm" onClick={handleSelectAll} className="gap-2">
+              {allFilteredSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+              {allFilteredSelected ? "Unselect All" : "Select All"}
+            </Button>
+            {selectedCount > 0 && (
+              <>
+                <Button type="button" variant="destructive" size="sm" onClick={handleDeleteSelected} className="gap-2">
+                  <Trash2 className="w-4 h-4" /> Delete {selectedCount}
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedVideoIds(new Set())} className="gap-2">
+                  <X className="w-4 h-4" /> Clear
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {Array.from({ length: 8 }).map((_, index) => <div key={index} className="rounded-xl bg-muted animate-pulse aspect-[9/16]" />)}
@@ -177,9 +226,12 @@ export default function GalleryPrivate() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.04 }}
                 onClick={() => setSelectedVideo(video)}
-                className="break-inside-avoid rounded-xl overflow-hidden border border-border bg-card group shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer mb-4"
+                className={`break-inside-avoid rounded-xl overflow-hidden border border-border bg-card group shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer mb-4 ${selectedVideoIds.has(video.id) ? "ring-2 ring-destructive" : ""}`}
               >
                 <div className="relative overflow-hidden bg-black">
+                  <button onClick={(event) => toggleVideoSelection(event, video.id)} className="absolute top-2 left-2 z-10 flex items-center justify-center bg-black/50 hover:bg-black/75 backdrop-blur-sm text-white rounded-full p-1.5 transition-all">
+                    {selectedVideoIds.has(video.id) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                  </button>
                   <GalleryVideoThumbnail video={video} />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors"><PlayCircle className="w-10 h-10 text-white drop-shadow" /></div>
                   <button onClick={(event) => handleLike(event, video)} className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 hover:bg-black/70 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs transition-all opacity-0 group-hover:opacity-100"><Heart className="w-3 h-3" /> {video.likes || 0}</button>
