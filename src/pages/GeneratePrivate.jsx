@@ -206,7 +206,7 @@ export default function GeneratePrivate() {
 
       if (newRecord?.id) rememberLocalOwnedVideoId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
 
-      const response = await fetch("http://127.0.0.1:8787/generate-video", {
+      const response = await fetch("https://suggestions-entrepreneur-connecting-nasa.trycloudflare.com/generate-video", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
