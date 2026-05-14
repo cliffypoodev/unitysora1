@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { openRouterVideo } from "@/functions/openRouterVideo";
 import { useAuth } from "@/lib/AuthContext";
 import { getOwnerFields, rememberLocalOwnedVideoId } from "@/lib/videoOwnership";
 import { Button } from "@/components/ui/button";
@@ -207,17 +206,34 @@ export default function GeneratePrivate() {
 
       if (newRecord?.id) rememberLocalOwnedVideoId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
 
-      const response = await openRouterVideo(payload);
-      const videoResult = response.data || response;
-      if (videoResult?.ok === false) throw videoResult;
+      const response = await fetch("http://127.0.0.1:8787/generate-video", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-bridge-token": "test123",
+        },
+        body: JSON.stringify({
+          prompt: finalPrompt,
+          negativePrompt: "",
+          width: 640,
+          height: 360,
+          length: 17,
+          fps: 8,
+          steps: 6,
+          cfg: 5,
+        }),
+      });
 
-      const videoUrl = extractVideoUrl(videoResult);
-      if (!videoUrl) throw new Error("The provider did not return a playable video URL.");
+      const videoResult = await response.json();
+      if (!response.ok) throw new Error(videoResult?.error || "Local AI Bridge video generation failed.");
+
+      const videoUrl = Array.isArray(videoResult?.urls) ? videoResult.urls[0] : null;
+      if (!videoUrl) throw new Error("The local AI Bridge did not return urls[0].");
 
       const completedRecord = { status: "completed", thumbnail_url: videoUrl, video_url: videoUrl, source_video_url: videoUrl, error_message: "" };
       await base44.entities.GeneratedVideo.update(newRecord.id, completedRecord);
       rememberLocalOwnedVideoId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
-      setGeneratedItem({ ...newRecord, ...completedRecord, _engine: videoResult.model_used || PRIMARY_MODEL, _engineLabel: MODEL_LABELS[videoResult.model_used] || videoResult.model_used || "OpenRouter Video", _audioRequested: generateAudio });
+      setGeneratedItem({ ...newRecord, ...completedRecord, _engine: "local-bridge", _engineLabel: "Local AI Bridge", _audioRequested: generateAudio });
     } catch (error) {
       const message = getGenerationErrorMessage(error);
       if (newRecord?.id) {
