@@ -37,6 +37,12 @@ const DEFAULT_SIZE_BY_ASPECT_RATIO = {
   "1:1": "1024x1024",
 };
 
+const QUALITY_PRESETS = {
+  Fast: { width: 640, height: 360, length: 17, fps: 8, steps: 6, cfg: 5 },
+  Balanced: { width: 832, height: 480, length: 25, fps: 12, steps: 10, cfg: 5 },
+  Quality: { width: 832, height: 480, length: 49, fps: 16, steps: 14, cfg: 5 },
+};
+
 function normalizeDuration(duration) {
   const parsed = parseInt(String(duration || "10s"), 10);
   if (Number.isNaN(parsed)) return 10;
@@ -121,6 +127,7 @@ export default function GeneratePrivate() {
   const [size, setSize] = useState("720x1280");
   const [aspectRatio, setAspectRatio] = useState("9:16");
   const [duration, setDuration] = useState("10s");
+  const [qualityMode, setQualityMode] = useState("Fast");
   const [generateAudio, setGenerateAudio] = useState(true);
   const [referenceImage, setReferenceImage] = useState(null);
   const [referenceImageUrl, setReferenceImageUrl] = useState("");
@@ -206,6 +213,8 @@ export default function GeneratePrivate() {
 
       if (newRecord?.id) rememberLocalOwnedVideoId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
 
+      const qualityPreset = QUALITY_PRESETS[qualityMode];
+
       const response = await fetch("https://suggestions-entrepreneur-connecting-nasa.trycloudflare.com/generate-video", {
         method: "POST",
         headers: {
@@ -214,13 +223,8 @@ export default function GeneratePrivate() {
         },
         body: JSON.stringify({
           prompt: finalPrompt,
-          negativePrompt: "",
-          width: 640,
-          height: 360,
-          length: 17,
-          fps: 8,
-          steps: 6,
-          cfg: 5,
+          negativePrompt: "blurry, distorted, low quality, malformed anatomy, warped motion, bad hands, extra limbs, text, watermark",
+          ...qualityPreset,
         }),
       });
 
@@ -285,6 +289,19 @@ export default function GeneratePrivate() {
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => handleImageUpload(event.target.files?.[0])} />
               </div>
             )}
+
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Quality Mode</Label>
+              <Select value={qualityMode} onValueChange={setQualityMode}>
+                <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Fast">Fast</SelectItem>
+                  <SelectItem value="Balanced">Balanced</SelectItem>
+                  <SelectItem value="Quality">Quality</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1.5 text-xs text-muted-foreground">Fast is for testing only. Balanced and Quality follow prompts better but take longer.</p>
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Output Size</Label><Select value={size} onValueChange={(value) => { setSize(value); setAspectRatio(getAspectRatioForSize(value)); }}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="720x1280">720 × 1280</SelectItem><SelectItem value="1280x720">1280 × 720</SelectItem><SelectItem value="1024x1024">1024 × 1024</SelectItem><SelectItem value="1080x1920">1080 × 1920</SelectItem><SelectItem value="1920x1080">1920 × 1080</SelectItem></SelectContent></Select></div>
