@@ -201,6 +201,7 @@ export default function GeneratePrivate() {
         prompt: finalPrompt,
         negativePrompt: "blurry, distorted, low quality, malformed anatomy, warped motion, bad hands, extra limbs, text, watermark",
         ...qualityPreset,
+        seed,
       };
 
       const startResponse = await fetch("https://suggestions-entrepreneur-connecting-nasa.trycloudflare.com/generate-video/start", {
@@ -242,7 +243,7 @@ export default function GeneratePrivate() {
         const jobResult = await jobResponse.json();
         if (!jobResponse.ok) throw new Error(jobResult?.error || "Local AI Bridge job status check failed.");
 
-        if (jobResult?.status === "failed") {
+        if (jobResult?.status === "failed" || jobResult?.status === "timeout") {
           throw new Error(jobResult?.error_message || jobResult?.error || "Local AI Bridge video generation failed.");
         }
 
