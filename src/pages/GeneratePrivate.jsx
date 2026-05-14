@@ -196,6 +196,24 @@ export default function GeneratePrivate() {
         seed,
         generateAudio,
       });
+      const qualityPreset = QUALITY_PRESETS[qualityMode];
+      const bridgePayload = {
+        prompt: finalPrompt,
+        negativePrompt: "blurry, distorted, low quality, malformed anatomy, warped motion, bad hands, extra limbs, text, watermark",
+        ...qualityPreset,
+      };
+
+      const startResponse = await fetch("https://suggestions-entrepreneur-connecting-nasa.trycloudflare.com/generate-video/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-bridge-token": "test123",
+        },
+        body: JSON.stringify(bridgePayload),
+      });
+
+      const startResult = await startResponse.json();
+      if (!startResponse.ok || !startResult?.success || !startResult?.jobId) throw new Error(startResult?.error || "Local AI Bridge video job failed to start.");
 
       newRecord = await base44.entities.GeneratedVideo.create({
         ...ownerFields,
@@ -207,34 +225,34 @@ export default function GeneratePrivate() {
         status: "generating",
         mode,
         reference_image_url: mode === "i2v" ? referenceImageUrl : undefined,
-        generation_payload_debug: JSON.stringify({ route: "openRouterVideo", preferred_model: PRIMARY_MODEL, fallback_model: FALLBACK_MODEL, generate_audio: generateAudio, owner_user_id: ownerFields.owner_user_id, owner_email: ownerFields.owner_email, payload }),
+        generation_payload_debug: JSON.stringify({ route: "localBridgeQueuedVideo", jobId: startResult.jobId, qualityMode, generate_audio: generateAudio, owner_user_id: ownerFields.owner_user_id, owner_email: ownerFields.owner_email, payload, bridgePayload }),
         likes: 0,
       });
 
       if (newRecord?.id) rememberLocalOwnedVideoId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
 
-      const qualityPreset = QUALITY_PRESETS[qualityMode];
+      let completedRecord = null;
+      while (!completedRecord) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        const jobResponse = await fetch(`https://suggestions-entrepreneur-connecting-nasa.trycloudflare.com/jobs/${startResult.jobId}`, {
+          headers: {
+            "x-bridge-token": "test123",
+          },
+        });
+        const jobResult = await jobResponse.json();
+        if (!jobResponse.ok) throw new Error(jobResult?.error || "Local AI Bridge job status check failed.");
 
-      const response = await fetch("https://suggestions-entrepreneur-connecting-nasa.trycloudflare.com/generate-video", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-bridge-token": "test123",
-        },
-        body: JSON.stringify({
-          prompt: finalPrompt,
-          negativePrompt: "blurry, distorted, low quality, malformed anatomy, warped motion, bad hands, extra limbs, text, watermark",
-          ...qualityPreset,
-        }),
-      });
+        if (jobResult?.status === "failed") {
+          throw new Error(jobResult?.error_message || jobResult?.error || "Local AI Bridge video generation failed.");
+        }
 
-      const videoResult = await response.json();
-      if (!response.ok) throw new Error(videoResult?.error || "Local AI Bridge video generation failed.");
+        if (jobResult?.status === "completed") {
+          const videoUrl = Array.isArray(jobResult?.urls) ? jobResult.urls[0] : null;
+          if (!videoUrl) throw new Error("The local AI Bridge did not return urls[0].");
+          completedRecord = { status: "completed", thumbnail_url: videoUrl, video_url: videoUrl, source_video_url: videoUrl, error_message: "" };
+        }
+      }
 
-      const videoUrl = Array.isArray(videoResult?.urls) ? videoResult.urls[0] : null;
-      if (!videoUrl) throw new Error("The local AI Bridge did not return urls[0].");
-
-      const completedRecord = { status: "completed", thumbnail_url: videoUrl, video_url: videoUrl, source_video_url: videoUrl, error_message: "" };
       await base44.entities.GeneratedVideo.update(newRecord.id, completedRecord);
       rememberLocalOwnedVideoId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
       setGeneratedItem({ ...newRecord, ...completedRecord, _engine: "local-bridge", _engineLabel: "Local AI Bridge", _audioRequested: generateAudio });
