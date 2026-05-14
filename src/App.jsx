@@ -9,6 +9,8 @@ import Home from './pages/Home';
 import Docs from './pages/Docs';
 import Generate from './pages/GeneratePrivate';
 import Gallery from './pages/GalleryPrivate';
+import GenerateImage from './pages/GenerateImagePrivate';
+import ImageGallery from './pages/ImageGalleryPrivate';
 import Layout from './components/Layout';
 // Add page imports here
 
@@ -39,6 +41,8 @@ const AuthenticatedApp = () => {
         <Route path="/docs" element={<Docs />} />
         <Route path="/generate" element={<Generate />} />
         <Route path="/gallery" element={<Gallery />} />
+        <Route path="/generate-image" element={<GenerateImage />} />
+        <Route path="/image-gallery" element={<ImageGallery />} />
         {/* Add your page Route elements here */}
       </Route>
       <Route path="*" element={<PageNotFound />} />

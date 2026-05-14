@@ -1,4 +1,5 @@
-const STORAGE_PREFIX = "unitysora_owned_video_ids";
+const VIDEO_STORAGE_PREFIX = "unitysora_owned_video_ids";
+const IMAGE_STORAGE_PREFIX = "unitysora_owned_image_ids";
 
 export function normalizeIdentity(value) {
   return String(value || "").trim().toLowerCase();
@@ -34,15 +35,15 @@ export function getOwnerFields(user) {
   };
 }
 
-export function getStorageKey(ownerId, ownerEmail) {
+export function getStorageKey(ownerId, ownerEmail, prefix = VIDEO_STORAGE_PREFIX) {
   const stableOwner = normalizeIdentity(ownerEmail || ownerId || "anonymous");
-  return `${STORAGE_PREFIX}:${stableOwner}`;
+  return `${prefix}:${stableOwner}`;
 }
 
-export function readLocalOwnedVideoIds(ownerId, ownerEmail) {
+function readLocalOwnedIds(ownerId, ownerEmail, prefix) {
   if (typeof window === "undefined") return new Set();
   try {
-    const raw = window.localStorage.getItem(getStorageKey(ownerId, ownerEmail));
+    const raw = window.localStorage.getItem(getStorageKey(ownerId, ownerEmail, prefix));
     const parsed = raw ? JSON.parse(raw) : [];
     return new Set(Array.isArray(parsed) ? parsed.filter(Boolean).map(String) : []);
   } catch {
@@ -50,35 +51,51 @@ export function readLocalOwnedVideoIds(ownerId, ownerEmail) {
   }
 }
 
-export function rememberLocalOwnedVideoId(videoId, ownerId, ownerEmail) {
-  if (!videoId || typeof window === "undefined") return;
+function rememberLocalOwnedId(itemId, ownerId, ownerEmail, prefix) {
+  if (!itemId || typeof window === "undefined") return;
   try {
-    const ids = readLocalOwnedVideoIds(ownerId, ownerEmail);
-    ids.add(String(videoId));
-    window.localStorage.setItem(getStorageKey(ownerId, ownerEmail), JSON.stringify(Array.from(ids)));
+    const ids = readLocalOwnedIds(ownerId, ownerEmail, prefix);
+    ids.add(String(itemId));
+    window.localStorage.setItem(getStorageKey(ownerId, ownerEmail, prefix), JSON.stringify(Array.from(ids)));
   } catch {
     // localStorage can fail in private browsing. Database owner fields still remain the primary mechanism.
   }
 }
 
-export function belongsToCurrentUser(video, ownerId, ownerEmail, localOwnedIds = new Set()) {
+export function readLocalOwnedVideoIds(ownerId, ownerEmail) {
+  return readLocalOwnedIds(ownerId, ownerEmail, VIDEO_STORAGE_PREFIX);
+}
+
+export function rememberLocalOwnedVideoId(videoId, ownerId, ownerEmail) {
+  rememberLocalOwnedId(videoId, ownerId, ownerEmail, VIDEO_STORAGE_PREFIX);
+}
+
+export function readLocalOwnedImageIds(ownerId, ownerEmail) {
+  return readLocalOwnedIds(ownerId, ownerEmail, IMAGE_STORAGE_PREFIX);
+}
+
+export function rememberLocalOwnedImageId(imageId, ownerId, ownerEmail) {
+  rememberLocalOwnedId(imageId, ownerId, ownerEmail, IMAGE_STORAGE_PREFIX);
+}
+
+export function belongsToCurrentUser(item, ownerId, ownerEmail, localOwnedIds = new Set()) {
   const expectedOwnerId = normalizeIdentity(ownerId);
   const expectedEmail = normalizeIdentity(ownerEmail);
-  const videoId = String(video?.id || "");
+  const itemId = String(item?.id || "");
 
-  if (videoId && localOwnedIds.has(videoId)) return true;
+  if (itemId && localOwnedIds.has(itemId)) return true;
 
   const candidateValues = [
-    video?.owner_user_id,
-    video?.owner_email,
-    video?.created_by,
-    video?.created_by_email,
-    video?.createdBy,
-    video?.createdByEmail,
-    video?.user_id,
-    video?.user_email,
-    video?.creator_id,
-    video?.creator_email,
+    item?.owner_user_id,
+    item?.owner_email,
+    item?.created_by,
+    item?.created_by_email,
+    item?.createdBy,
+    item?.createdByEmail,
+    item?.user_id,
+    item?.user_email,
+    item?.creator_id,
+    item?.creator_email,
   ].map(normalizeIdentity).filter(Boolean);
 
   if (!expectedOwnerId && !expectedEmail) return false;

@@ -1,0 +1,93 @@
+{
+  "name": "GeneratedImage",
+  "type": "object",
+  "properties": {
+    "prompt": {
+      "type": "string",
+      "description": "Text prompt used to generate the image"
+    },
+    "owner_user_id": {
+      "type": "string"
+    },
+    "owner_email": {
+      "type": "string"
+    },
+    "owner_name": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "creator_id": {
+      "type": "string"
+    },
+    "creator_email": {
+      "type": "string"
+    },
+    "resolution": {
+      "type": "string",
+      "default": "1024x1024"
+    },
+    "aspect_ratio": {
+      "type": "string",
+      "enum": [
+        "1:1",
+        "16:9",
+        "9:16",
+        "4:3",
+        "3:4"
+      ],
+      "default": "1:1"
+    },
+    "width": {
+      "type": "number",
+      "default": 1024
+    },
+    "height": {
+      "type": "number",
+      "default": 1024
+    },
+    "steps": {
+      "type": "number",
+      "default": 12
+    },
+    "seed": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "generating",
+        "completed",
+        "failed"
+      ],
+      "default": "pending"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "source_image_url": {
+      "type": "string"
+    },
+    "thumbnail_url": {
+      "type": "string"
+    },
+    "likes": {
+      "type": "number",
+      "default": 0
+    },
+    "error_message": {
+      "type": "string"
+    },
+    "generation_payload_debug": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "prompt"
+  ]
+}
