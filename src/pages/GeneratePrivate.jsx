@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { getOwnerFields, rememberLocalOwnedVideoId } from "@/lib/videoOwnership";
+import { localVideoBridge } from "@/functions/localVideoBridge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -278,17 +279,9 @@ export default function GeneratePrivate() {
         seed,
       };
 
-      const startResponse = await fetch("https://suggestions-entrepreneur-connecting-nasa.trycloudflare.com/generate-video/start", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-bridge-token": "test123",
-        },
-        body: JSON.stringify(bridgePayload),
-      });
-
-      const startResult = await startResponse.json();
-      if (!startResponse.ok || !startResult?.success || !startResult?.jobId) throw new Error(startResult?.error || "Local AI Bridge video job failed to start.");
+      const startResponse = await localVideoBridge({ action: "start", payload: bridgePayload });
+      const startResult = startResponse.data;
+      if (!startResult?.success || !startResult?.jobId) throw new Error(startResult?.error || "Local AI Bridge video job failed to start.");
 
       newRecord = await base44.entities.GeneratedVideo.create({
         ...ownerFields,
@@ -309,13 +302,8 @@ export default function GeneratePrivate() {
       let completedRecord = null;
       while (!completedRecord) {
         await new Promise((resolve) => setTimeout(resolve, 5000));
-        const jobResponse = await fetch(`https://suggestions-entrepreneur-connecting-nasa.trycloudflare.com/jobs/${startResult.jobId}`, {
-          headers: {
-            "x-bridge-token": "test123",
-          },
-        });
-        const jobResult = await jobResponse.json();
-        if (!jobResponse.ok) throw new Error(jobResult?.error || "Local AI Bridge job status check failed.");
+        const jobResponse = await localVideoBridge({ action: "status", jobId: startResult.jobId });
+        const jobResult = jobResponse.data;
 
         if (jobResult?.status === "failed" || jobResult?.status === "timeout") {
           throw new Error(jobResult?.error_message || jobResult?.error || "Local AI Bridge video generation failed.");
