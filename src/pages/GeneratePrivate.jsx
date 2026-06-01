@@ -10,9 +10,41 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle2, ImageIcon, Loader2, Sparkles, Upload, Video, Wand2, X } from "lucide-react";
 
-const VIDEO_MODELS = {
-  "kwaivgi/kling-video-o1:free": "Kling Video O1",
-  "openai/sora-2-pro:free": "Sora 2 Pro",
+const VIDEO_MODEL_CAPABILITIES = {
+  "kwaivgi/kling-video-o1:free": {
+    label: "Kling Video O1",
+    aspectRatios: ["9:16", "16:9", "1:1"],
+    durations: ["5s", "10s"],
+    sizesByAspectRatio: {
+      "9:16": ["720x1280"],
+      "16:9": ["1280x720"],
+      "1:1": ["1024x1024"],
+    },
+  },
+  "openai/sora-2-pro:free": {
+    label: "Sora 2 Pro",
+    aspectRatios: ["9:16", "16:9"],
+    durations: ["5s", "10s", "15s", "20s"],
+    sizesByAspectRatio: {
+      "9:16": ["1080x1920", "720x1280"],
+      "16:9": ["1920x1080", "1280x720"],
+    },
+  },
+};
+
+const SIZE_LABELS = {
+  "720x1280": "720 × 1280",
+  "1080x1920": "1080 × 1920",
+  "1280x720": "1280 × 720",
+  "1920x1080": "1920 × 1080",
+  "1024x1024": "1024 × 1024",
+};
+
+const DURATION_LABELS = {
+  "5s": "5 seconds",
+  "10s": "10 seconds",
+  "15s": "15 seconds",
+  "20s": "20 seconds",
 };
 
 function normalizeAspectRatio(aspectRatio) {
@@ -44,7 +76,10 @@ const QUALITY_PRESETS = {
 function normalizeDuration(duration) {
   const parsed = parseInt(String(duration || "10s"), 10);
   if (Number.isNaN(parsed)) return 10;
-  return parsed <= 5 ? 5 : 10;
+  if (parsed <= 5) return 5;
+  if (parsed <= 10) return 10;
+  if (parsed <= 15) return 15;
+  return 20;
 }
 
 function getAspectRatioForSize(size) {
@@ -54,6 +89,24 @@ function getAspectRatioForSize(size) {
 function getCompatibleSize(size, aspectRatio) {
   const normalizedAspectRatio = normalizeAspectRatio(aspectRatio);
   return SIZE_ASPECT_RATIO[size] === normalizedAspectRatio ? size : DEFAULT_SIZE_BY_ASPECT_RATIO[normalizedAspectRatio];
+}
+
+function getModelCapabilities(model) {
+  return VIDEO_MODEL_CAPABILITIES[model] || VIDEO_MODEL_CAPABILITIES["kwaivgi/kling-video-o1:free"];
+}
+
+function getDefaultSizeForAspect(model, aspectRatio) {
+  const capabilities = getModelCapabilities(model);
+  return capabilities.sizesByAspectRatio[aspectRatio]?.[0] || capabilities.sizesByAspectRatio[capabilities.aspectRatios[0]][0];
+}
+
+function getPayloadDimensions(size) {
+  const [width, height] = String(size).split("x").map(Number);
+  return { width, height };
+}
+
+function getPayloadLength(duration, fps) {
+  return normalizeDuration(duration) * fps;
 }
 
 function getGenerationErrorMessage(error) {
@@ -134,6 +187,19 @@ export default function GeneratePrivate() {
   const [generatedItem, setGeneratedItem] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const currentModelCapabilities = getModelCapabilities(selectedModel);
+
+  useEffect(() => {
+    const nextAspectRatio = currentModelCapabilities.aspectRatios.includes(aspectRatio) ? aspectRatio : currentModelCapabilities.aspectRatios[0];
+    const availableSizes = currentModelCapabilities.sizesByAspectRatio[nextAspectRatio] || [];
+    const nextSize = availableSizes.includes(size) ? size : availableSizes[0];
+    const nextDuration = currentModelCapabilities.durations.includes(duration) ? duration : currentModelCapabilities.durations[0];
+
+    if (nextAspectRatio !== aspectRatio) setAspectRatio(nextAspectRatio);
+    if (nextSize && nextSize !== size) setSize(nextSize);
+    if (nextDuration !== duration) setDuration(nextDuration);
+  }, [selectedModel, aspectRatio, size, duration, currentModelCapabilities]);
+
   const handleImageUpload = async (file) => {
     if (!file) return;
     setUploadingImage(true);
@@ -184,7 +250,9 @@ export default function GeneratePrivate() {
       const seed = Math.floor(Math.random() * 999999);
       const safeDuration = `${normalizeDuration(duration)}s`;
       const safeAspectRatio = normalizeAspectRatio(aspectRatio);
-      const safeSize = getCompatibleSize(size, safeAspectRatio);
+      const allowedSizes = currentModelCapabilities.sizesByAspectRatio[safeAspectRatio] || [];
+      const safeSize = allowedSizes.includes(size) ? size : allowedSizes[0];
+      const payloadDimensions = getPayloadDimensions(safeSize);
       const payload = buildPayload({
         prompt: finalPrompt,
         referenceImageUrl: mode === "i2v" ? referenceImageUrl : "",
@@ -201,6 +269,9 @@ export default function GeneratePrivate() {
         negativePrompt: "blurry, distorted, low quality, malformed anatomy, warped motion, bad hands, extra limbs, text, watermark",
         model: selectedModel,
         ...qualityPreset,
+        width: payloadDimensions.width,
+        height: payloadDimensions.height,
+        length: getPayloadLength(safeDuration, qualityPreset.fps),
         seed,
       };
 
@@ -314,8 +385,8 @@ export default function GeneratePrivate() {
               <Select value={selectedModel} onValueChange={setSelectedModel}>
                 <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(VIDEO_MODELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  {Object.entries(VIDEO_MODEL_CAPABILITIES).map(([value, capabilities]) => (
+                    <SelectItem key={value} value={value}>{capabilities.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -335,9 +406,39 @@ export default function GeneratePrivate() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Output Size</Label><Select value={size} onValueChange={(value) => { setSize(value); setAspectRatio(getAspectRatioForSize(value)); }}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="720x1280">720 × 1280</SelectItem><SelectItem value="1280x720">1280 × 720</SelectItem><SelectItem value="1024x1024">1024 × 1024</SelectItem><SelectItem value="1080x1920">1080 × 1920</SelectItem><SelectItem value="1920x1080">1920 × 1080</SelectItem></SelectContent></Select></div>
-              <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Aspect Ratio</Label><Select value={aspectRatio} onValueChange={(value) => { setAspectRatio(value); setSize(getCompatibleSize(size, value)); }}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="9:16">9:16</SelectItem><SelectItem value="16:9">16:9</SelectItem><SelectItem value="1:1">1:1</SelectItem></SelectContent></Select></div>
-              <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Duration</Label><Select value={duration} onValueChange={setDuration}><SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="5s">5 seconds</SelectItem><SelectItem value="10s">10 seconds</SelectItem></SelectContent></Select></div>
+              <div>
+                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Output Size</Label>
+                <Select value={size} onValueChange={(value) => { setSize(value); setAspectRatio(getAspectRatioForSize(value)); }}>
+                  <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(currentModelCapabilities.sizesByAspectRatio[aspectRatio] || []).map((value) => (
+                      <SelectItem key={value} value={value}>{SIZE_LABELS[value] || value}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Aspect Ratio</Label>
+                <Select value={aspectRatio} onValueChange={(value) => { setAspectRatio(value); setSize(getDefaultSizeForAspect(selectedModel, value)); }}>
+                  <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {currentModelCapabilities.aspectRatios.map((value) => (
+                      <SelectItem key={value} value={value}>{value}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Duration</Label>
+                <Select value={duration} onValueChange={setDuration}>
+                  <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {currentModelCapabilities.durations.map((value) => (
+                      <SelectItem key={value} value={value}>{DURATION_LABELS[value] || value}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div><Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Generate Audio</Label><div className="grid grid-cols-2 rounded-md border border-input overflow-hidden h-9"><button type="button" onClick={() => setGenerateAudio(true)} className={`text-sm font-medium transition-colors ${generateAudio ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}>On</button><button type="button" onClick={() => setGenerateAudio(false)} className={`text-sm font-medium transition-colors ${!generateAudio ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}>Off</button></div></div>
             </div>
 

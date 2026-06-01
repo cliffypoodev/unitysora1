@@ -6,34 +6,6 @@
       "type": "string",
       "description": "Text prompt used to generate the video"
     },
-    "owner_user_id": {
-      "type": "string",
-      "description": "Base44 authenticated user id that owns this video"
-    },
-    "owner_email": {
-      "type": "string",
-      "description": "Authenticated Google/Base44 user email that owns this video"
-    },
-    "owner_name": {
-      "type": "string",
-      "description": "Authenticated user display name at generation time"
-    },
-    "user_id": {
-      "type": "string",
-      "description": "Owner user id alias used for private gallery filtering"
-    },
-    "user_email": {
-      "type": "string",
-      "description": "Owner email alias used for private gallery filtering"
-    },
-    "creator_id": {
-      "type": "string",
-      "description": "Creator id alias used for private gallery filtering"
-    },
-    "creator_email": {
-      "type": "string",
-      "description": "Creator email alias used for private gallery filtering"
-    },
     "resolution": {
       "type": "string",
       "enum": [
@@ -42,9 +14,14 @@
         "640x360",
         "576x1024",
         "1024x576",
-        "768x768"
+        "768x768",
+        "1280x720",
+        "720x1280",
+        "1024x1024",
+        "1920x1080",
+        "1080x1920"
       ],
-      "default": "576x1024"
+      "default": "720x1280"
     },
     "aspect_ratio": {
       "type": "string",
@@ -62,10 +39,13 @@
       "enum": [
         "2s",
         "4s",
+        "5s",
         "8s",
-        "16s"
+        "10s",
+        "15s",
+        "20s"
       ],
-      "default": "4s"
+      "default": "8s"
     },
     "motion_score": {
       "type": "number",
@@ -92,16 +72,10 @@
       "type": "string"
     },
     "video_url": {
-      "type": "string",
-      "description": "Playable video URL used by gallery and modal"
+      "type": "string"
     },
     "source_video_url": {
-      "type": "string",
-      "description": "Original provider/Base44 media video URL before proxying or export transformation"
-    },
-    "proxy_video_url": {
-      "type": "string",
-      "description": "Optional same-origin backend proxy URL used for iOS file sharing and export"
+      "type": "string"
     },
     "mode": {
       "type": "string",
@@ -141,12 +115,10 @@
       "default": 0
     },
     "error_message": {
-      "type": "string",
-      "description": "Failure details when video generation does not return a playable video"
+      "type": "string"
     },
     "generation_payload_debug": {
-      "type": "string",
-      "description": "Sanitized JSON debug info showing mode, reference-image presence, and provider payload keys"
+      "type": "string"
     }
   },
   "required": [
