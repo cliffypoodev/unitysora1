@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
+import { getImageGenerationStyle, IMAGE_GENERATION_STYLES } from "@/lib/imageGenerationStyles";
 import { getOwnerFields, rememberLocalOwnedImageId } from "@/lib/videoOwnership";
 import { AlertTriangle, Check, Copy, ImageIcon, Loader2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ export default function GenerateImagePrivate() {
   const [checkingUser, setCheckingUser] = useState(!contextUser);
   const [prompt, setPrompt] = useState(() => new URLSearchParams(window.location.search).get("prompt") || "");
   const [aspectRatio, setAspectRatio] = useState("1:1");
+  const [selectedStyleId, setSelectedStyleId] = useState("none");
   const [steps, setSteps] = useState("12");
   const [seed, setSeed] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -75,6 +77,7 @@ export default function GenerateImagePrivate() {
   const ownerFields = getOwnerFields(resolvedUser);
   const isSignedIn = Boolean(isAuthenticated || resolvedUser?.id || resolvedUser?.email || ownerFields.owner_user_id);
   const size = SIZE_BY_ASPECT_RATIO[aspectRatio] || SIZE_BY_ASPECT_RATIO["1:1"];
+  const selectedStyle = getImageGenerationStyle(selectedStyleId);
   const selectedSteps = Number(steps) || 12;
   const seedValue = seed.trim() ? Number(seed) : undefined;
   const canGenerate = Boolean(prompt.trim()) && isSignedIn && Boolean(ownerFields.owner_user_id) && !checkingUser && !isGenerating;
@@ -87,6 +90,7 @@ export default function GenerateImagePrivate() {
 
   const handleGenerate = async () => {
     const finalPrompt = prompt.trim();
+    const styledPrompt = selectedStyle.prompt ? `${finalPrompt}, ${selectedStyle.prompt}` : finalPrompt;
     if (!finalPrompt || isGenerating) return;
 
     const hasActiveSession = await base44.auth.isAuthenticated();
@@ -109,7 +113,8 @@ export default function GenerateImagePrivate() {
 
     try {
       const payload = {
-        prompt: finalPrompt,
+        prompt: styledPrompt,
+        negativePrompt: selectedStyle.negative,
         width: 512,
         height: 512,
         steps: 6,
@@ -136,7 +141,7 @@ export default function GenerateImagePrivate() {
         image_url: "",
         source_image_url: "",
         thumbnail_url: "",
-        generation_payload_debug: JSON.stringify({ route: "local-image-bridge", payload, seed: Number.isFinite(seedValue) ? seedValue : undefined, owner_user_id: ownerFields.owner_user_id, owner_email: ownerFields.owner_email }),
+        generation_payload_debug: JSON.stringify({ route: "local-image-bridge", selectedStyle: selectedStyle.label, styledPrompt, payload, seed: Number.isFinite(seedValue) ? seedValue : undefined, owner_user_id: ownerFields.owner_user_id, owner_email: ownerFields.owner_email }),
         likes: 0,
       });
 
@@ -202,6 +207,17 @@ export default function GenerateImagePrivate() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 sm:p-6 border-b border-background/10">
+            <div className="sm:col-span-3">
+              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Image Style</Label>
+              <Select value={selectedStyleId} onValueChange={setSelectedStyleId}>
+                <SelectTrigger className="bg-black/25 border-background/10 text-background"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-80">
+                  {IMAGE_GENERATION_STYLES.map((style) => (
+                    <SelectItem key={style.id} value={style.id}>{style.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label className="text-xs font-medium text-background/60 mb-1.5 block">Aspect Ratio</Label>
               <Select value={aspectRatio} onValueChange={setAspectRatio}>
