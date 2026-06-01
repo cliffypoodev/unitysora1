@@ -10,11 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle2, ImageIcon, Loader2, Sparkles, Upload, Video, Wand2, X } from "lucide-react";
 
-const PRIMARY_MODEL = "alibaba/wan-2.6";
-const FALLBACK_MODEL = "kwaivgi/kling-v3.0-std";
-const MODEL_LABELS = {
-  "alibaba/wan-2.6": "Wan 2.6",
-  "kwaivgi/kling-v3.0-std": "Kling v3.0 Standard",
+const VIDEO_MODELS = {
+  "kwaivgi/kling-video-o1:free": "Kling Video O1",
+  "openai/sora-2-pro:free": "Sora 2 Pro",
 };
 
 function normalizeAspectRatio(aspectRatio) {
@@ -72,11 +70,10 @@ function extractVideoUrl(result) {
   return candidates.find((value) => typeof value === "string" && value.trim()) || null;
 }
 
-function buildPayload({ prompt, referenceImageUrl, aspectRatio, duration, size, seed, generateAudio }) {
+function buildPayload({ prompt, referenceImageUrl, aspectRatio, duration, size, seed, generateAudio, model }) {
   return {
     prompt,
-    preferred_model: PRIMARY_MODEL,
-    fallback_model: FALLBACK_MODEL,
+    model,
     aspect_ratio: normalizeAspectRatio(aspectRatio),
     duration: normalizeDuration(duration),
     size: getCompatibleSize(size, aspectRatio),
@@ -127,6 +124,7 @@ export default function GeneratePrivate() {
   const [size, setSize] = useState("720x1280");
   const [aspectRatio, setAspectRatio] = useState("9:16");
   const [duration, setDuration] = useState("10s");
+  const [selectedModel, setSelectedModel] = useState("kwaivgi/kling-video-o1:free");
   const [qualityMode, setQualityMode] = useState("Fast");
   const [generateAudio, setGenerateAudio] = useState(true);
   const [referenceImage, setReferenceImage] = useState(null);
@@ -195,11 +193,13 @@ export default function GeneratePrivate() {
         size: safeSize,
         seed,
         generateAudio,
+        model: selectedModel,
       });
       const qualityPreset = QUALITY_PRESETS[qualityMode];
       const bridgePayload = {
         prompt: finalPrompt,
         negativePrompt: "blurry, distorted, low quality, malformed anatomy, warped motion, bad hands, extra limbs, text, watermark",
+        model: selectedModel,
         ...qualityPreset,
         seed,
       };
@@ -226,7 +226,7 @@ export default function GeneratePrivate() {
         status: "generating",
         mode,
         reference_image_url: mode === "i2v" ? referenceImageUrl : undefined,
-        generation_payload_debug: JSON.stringify({ route: "localBridgeQueuedVideo", jobId: startResult.jobId, qualityMode, generate_audio: generateAudio, owner_user_id: ownerFields.owner_user_id, owner_email: ownerFields.owner_email, payload, bridgePayload }),
+        generation_payload_debug: JSON.stringify({ route: "localBridgeQueuedVideo", jobId: startResult.jobId, model: selectedModel, qualityMode, generate_audio: generateAudio, owner_user_id: ownerFields.owner_user_id, owner_email: ownerFields.owner_email, payload, bridgePayload }),
         likes: 0,
       });
 
@@ -308,6 +308,18 @@ export default function GeneratePrivate() {
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => handleImageUpload(event.target.files?.[0])} />
               </div>
             )}
+
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Video Model</Label>
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(VIDEO_MODELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <div>
               <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Quality Mode</Label>

@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "links": {
+      "type": "string"
+    },
+    "highlight": {
+      "type": "boolean"
+    }
+  },
+  "required": [],
+  "name": "NewsItem"
+}
