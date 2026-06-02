@@ -1,7 +1,10 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const BRIDGE_BASE_URL = 'https://suggestions-entrepreneur-connecting-nasa.trycloudflare.com';
 const BRIDGE_TOKEN = 'test123';
+
+function getBridgeBaseUrl() {
+  return Deno.env.get('LOCAL_BRIDGE_BASE_URL')?.replace(/\/$/, '');
+}
 
 Deno.serve(async (req) => {
   try {
@@ -14,9 +17,14 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const action = body?.action;
+    const bridgeBaseUrl = getBridgeBaseUrl();
+
+    if (!bridgeBaseUrl) {
+      return Response.json({ error: 'LOCAL_BRIDGE_BASE_URL is not configured.' }, { status: 500 });
+    }
 
     if (action === 'start') {
-      const response = await fetch(`${BRIDGE_BASE_URL}/generate-video/start`, {
+      const response = await fetch(`${bridgeBaseUrl}/generate-video/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -35,7 +43,7 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Missing jobId' }, { status: 400 });
       }
 
-      const response = await fetch(`${BRIDGE_BASE_URL}/jobs/${jobId}`, {
+      const response = await fetch(`${bridgeBaseUrl}/jobs/${jobId}`, {
         headers: {
           'x-bridge-token': BRIDGE_TOKEN,
         },
