@@ -10,7 +10,11 @@ function getImagePoster(video) {
   return poster && !isLikelyVideoUrl(poster) ? poster : "";
 }
 
-export default function GalleryVideoThumbnail({ video }) {
+/**
+ * Fills its parent. The parent owns the aspect ratio so the masonry
+ * layout can size tiles from metadata before anything loads.
+ */
+export default function GalleryVideoThumbnail({ video, className = "" }) {
   const containerRef = useRef(null);
   const videoRef = useRef(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -21,13 +25,14 @@ export default function GalleryVideoThumbnail({ video }) {
 
     const observer = new IntersectionObserver(
       ([entry]) => setIsVisible(entry.isIntersecting),
-      { rootMargin: "300px" }
+      { rootMargin: "400px" }
     );
 
     observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, [imagePoster]);
 
+  // Seek slightly into the clip so the poster frame isn't a black first frame.
   const handleLoadedMetadata = () => {
     const element = videoRef.current;
     if (!element || element.duration <= 0) return;
@@ -35,13 +40,13 @@ export default function GalleryVideoThumbnail({ video }) {
   };
 
   return (
-    <div ref={containerRef} className="w-full aspect-[9/16] bg-black overflow-hidden">
+    <div ref={containerRef} className={`w-full h-full bg-black ${className}`}>
       {imagePoster ? (
         <img
           src={imagePoster}
           alt={video?.prompt || "Generated video"}
           loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="w-full h-full object-cover no-drag"
         />
       ) : isVisible ? (
         <video
@@ -51,7 +56,7 @@ export default function GalleryVideoThumbnail({ video }) {
           playsInline
           preload="metadata"
           onLoadedMetadata={handleLoadedMetadata}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 pointer-events-none"
+          className="w-full h-full object-cover pointer-events-none"
         />
       ) : null}
     </div>
