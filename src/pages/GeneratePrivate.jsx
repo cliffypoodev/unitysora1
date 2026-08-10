@@ -455,14 +455,20 @@ export default function GeneratePrivate() {
 
             <div>
               <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Quality Mode</Label>
-              <Select value={qualityMode} onValueChange={setQualityMode} disabled={videoModel === "minimax_h3" || isOpenSora}>
-                <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.keys(QUALITY_PRESETS).map((value) => (
-                    <SelectItem key={value} value={value}>{value}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {videoModel === "wan_2_2" ? (
+                <Select value={qualityMode} onValueChange={setQualityMode}>
+                  <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(QUALITY_PRESETS).map((value) => (
+                      <SelectItem key={value} value={value}>{value}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="h-9 rounded-md border border-input bg-muted/30 px-3 flex items-center text-sm">
+                  {isOpenSora ? "Fixed · 50 steps" : "Fixed · 6 steps"}
+                </div>
+              )}
               <p className="mt-1.5 text-xs text-muted-foreground">
                 {isOpenSora
                   ? OPEN_SORA_SETTINGS.quality.description
@@ -475,14 +481,18 @@ export default function GeneratePrivate() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Aspect Ratio</Label>
-                <Select value={effectiveAspectRatio} onValueChange={setAspectRatio} disabled={isOpenSora}>
-                  <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.keys(VIDEO_SIZES).map((value) => (
-                      <SelectItem key={value} value={value}>{value}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isOpenSora ? (
+                  <div className="h-9 rounded-md border border-input bg-muted/30 px-3 flex items-center text-sm">1:1</div>
+                ) : (
+                  <Select value={effectiveAspectRatio} onValueChange={setAspectRatio}>
+                    <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.keys(VIDEO_SIZES).map((value) => (
+                        <SelectItem key={value} value={value}>{value}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div>
@@ -494,14 +504,20 @@ export default function GeneratePrivate() {
 
               <div>
                 <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Duration</Label>
-                <Select value={effectiveDuration} onValueChange={setDuration} disabled={isOpenSora}>
-                  <SelectTrigger className="text-sm h-9"><SelectValue placeholder={selectedDuration.label} /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(DURATION_OPTIONS).map(([value, option]) => (
-                      <SelectItem key={value} value={value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isOpenSora ? (
+                  <div className="h-9 rounded-md border border-input bg-muted/30 px-3 flex items-center text-sm">
+                    {selectedDuration.label}
+                  </div>
+                ) : (
+                  <Select value={effectiveDuration} onValueChange={setDuration}>
+                    <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(DURATION_OPTIONS).map(([value, option]) => (
+                        <SelectItem key={value} value={value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
 
