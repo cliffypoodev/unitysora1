@@ -1,3 +1,4 @@
+import { createClientFromRequest } from "npm:@base44/sdk";
 import { secrets } from "base44:runtime";
 
 /**
@@ -106,6 +107,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
 
   try {
+    // Signed-in accounts only. Without this the endpoint is open to anyone
+    // who finds the URL, and they would be spending the Gemini quota.
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (!user) return jsonResponse({ success: false, error: "Sign in to use Prompt Studio." }, 401);
+
     const apiKey = secrets.get("GEMINI_API_KEY");
     if (!apiKey) {
       return jsonResponse(
