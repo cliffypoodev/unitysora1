@@ -1,5 +1,5 @@
 {
-  "name": "Captured: github.com",
+  "name": "UnitySora",
   "site": {
     "installCommand": "npm install",
     "buildCommand": "npm run build",
