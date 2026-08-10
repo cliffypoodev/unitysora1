@@ -11,14 +11,20 @@ import {
   MAX_IMAGE_SEED,
 } from "@/lib/imageGenerationSettings";
 import { getOwnerFields, rememberLocalOwnedImageId } from "@/lib/videoOwnership";
-import { AlertTriangle, Check, Copy, ImageIcon, Loader2, LogIn, Sparkles } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import { Check, Copy, Images, ImageIcon, Loader2, LogIn, Share2, Sparkles } from "lucide-react";
+import { shareMedia } from "@/lib/mediaExport";
+import {
+  CreateTabs,
+  Disclosure,
+  Field,
+  GenerateButton,
+  NativeSelect,
+  Notice,
+  Panel,
+  RatioPicker,
+  ReadOnlyField,
+  StickyAction,
+} from "@/components/create/ui";
 
 async function copyToClipboard(text) {
   if (!text) return false;
@@ -55,6 +61,8 @@ export default function GenerateImagePrivate() {
   const [generatedItem, setGeneratedItem] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
   const resultRef = useRef(null);
 
   useEffect(() => {
@@ -240,198 +248,213 @@ export default function GenerateImagePrivate() {
   };
 
   return (
-    <div className="min-h-screen bg-foreground text-background">
-      <div className="max-w-[980px] mx-auto px-4 py-10">
-        <div className="text-center mb-8">
-          <Badge className="bg-background/10 text-background border-background/20 mb-4">
-            Hugging Face Spaces · Private generation
-          </Badge>
-          <h1 className="text-4xl font-bold mb-3">Generate Image</h1>
-          <p className="text-background/70 max-w-xl mx-auto">
-            Create high-quality images with Hugging Face Spaces and save them privately to your account.
-          </p>
+    <div className="min-h-dvh">
+      <div className="mx-auto max-w-[1500px] px-4 lg:px-8 py-4 lg:py-6">
+        <div className="flex items-center gap-3 mb-5">
+          <CreateTabs active="image" />
+          <span className="ml-auto hidden sm:block text-xs text-muted-foreground truncate max-w-[220px]">
+            {settings.model}
+          </span>
         </div>
 
-        <div className="rounded-3xl border border-background/10 bg-background/[0.06] shadow-2xl overflow-hidden">
-          <div className="p-4 sm:p-6 border-b border-background/10">
-            <Label className="text-sm font-medium text-background/80 mb-2 block">Prompt</Label>
-            <Textarea
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              maxLength={3500}
-              placeholder="Create a cinematic image of..."
-              className="min-h-[190px] resize-none border-background/10 bg-black/25 text-background placeholder:text-background/40 focus-visible:ring-background/30"
-            />
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="text-xs text-background/45">{prompt.length} characters</div>
-              <Button type="button" variant="outline" size="sm" onClick={handleCopyPrompt} className="border-background/20 text-background hover:bg-background/10 gap-1.5">
-                {copyMessage ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                {copyMessage || "Copy Prompt"}
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 sm:p-6 border-b border-background/10">
-            <div className="sm:col-span-2">
-              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Art Style</Label>
-              <Select value={selectedStyleId} onValueChange={setSelectedStyleId}>
-                <SelectTrigger className="bg-black/25 border-background/10 text-background"><SelectValue /></SelectTrigger>
-                <SelectContent className="max-h-80">
-                  {IMAGE_GENERATION_STYLES.map((style) => (
-                    <SelectItem key={style.id} value={style.id}>{style.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="sm:col-span-2 flex items-center justify-between gap-4 rounded-lg border border-background/10 bg-black/25 px-3 py-3">
-              <div>
-                <Label htmlFor="nsfw-mode" className="text-sm font-medium text-background">NSFW model</Label>
-                <p className="mt-0.5 text-xs text-background/50">{settings.model}</p>
-              </div>
-              <Switch id="nsfw-mode" checked={nsfw} onCheckedChange={setNsfw} />
-            </div>
-
-            <div>
-              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Output Orientation & Aspect</Label>
-              <Select value={aspectRatio} onValueChange={setAspectRatio}>
-                <SelectTrigger className="bg-black/25 border-background/10 text-background"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {IMAGE_ASPECT_RATIOS.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Output Size</Label>
-              <Select value={outputSize} onValueChange={setOutputSize}>
-                <SelectTrigger className="bg-black/25 border-background/10 text-background"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {IMAGE_OUTPUT_SIZES.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Exact Resolution</Label>
-              <div className="h-9 rounded-md border border-background/10 bg-black/25 px-3 flex items-center text-sm text-background">
-                {settings.resolution}
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Generation Quality</Label>
-              <Select value={quality} onValueChange={setQuality}>
-                <SelectTrigger className="bg-black/25 border-background/10 text-background"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {IMAGE_QUALITY_PRESETS.map((item) => {
-                    const preset = getImageGenerationSettings({ aspectRatio, outputSize, quality: item.id, nsfw });
-                    return <SelectItem key={item.id} value={item.id}>{item.label} · {preset.steps} steps</SelectItem>;
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="sm:col-span-2">
-              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Optional Seed</Label>
-              <Input
-                value={seed}
-                inputMode="numeric"
-                maxLength={10}
-                onChange={(event) => setSeed(event.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
-                placeholder="Leave blank for a random seed"
-                aria-invalid={!seedIsValid}
-                className="bg-black/25 border-background/10 text-background placeholder:text-background/40"
+        <div className="grid gap-5 lg:grid-cols-[400px_minmax(0,1fr)] lg:items-start">
+          {/* ---------------- Controls ---------------- */}
+          <div className="space-y-4">
+            <Panel className="p-3.5">
+              <textarea
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                maxLength={3500}
+                rows={5}
+                placeholder="Describe the image. Subject, setting, lighting, lens, mood."
+                className="w-full resize-none bg-transparent text-[15px] leading-relaxed placeholder:text-muted-foreground focus:outline-none"
               />
-              <p className={`mt-1 text-xs ${seedIsValid ? "text-background/45" : "text-red-300"}`}>
-                {seedIsValid ? `0–${MAX_IMAGE_SEED}; blank generates a new random result.` : `Seed must be between 0 and ${MAX_IMAGE_SEED}.`}
-              </p>
-            </div>
-          </div>
+              <div className="mt-2 flex items-center justify-between border-t border-border pt-2.5">
+                <span className="text-[11px] text-muted-foreground tabular">{prompt.length} / 3500</span>
+                <button
+                  type="button"
+                  onClick={handleCopyPrompt}
+                  className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  {copyMessage ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copyMessage || "Copy"}
+                </button>
+              </div>
+            </Panel>
 
-          <div className="p-4 sm:p-6 space-y-4">
-            {errorMessage && (
-              <div className="flex items-start gap-2 rounded-lg border border-red-400/30 bg-red-500/15 p-3 text-sm text-red-100">
-                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>{errorMessage}</span>
+            <Field label="Aspect ratio">
+              <RatioPicker value={aspectRatio} options={IMAGE_ASPECT_RATIOS} onChange={setAspectRatio} />
+            </Field>
+
+            <Field label="Art style">
+              <NativeSelect value={selectedStyleId} onChange={setSelectedStyleId} options={IMAGE_GENERATION_STYLES} />
+            </Field>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Size">
+                <NativeSelect value={outputSize} onChange={setOutputSize} options={IMAGE_OUTPUT_SIZES} />
+              </Field>
+              <Field label="Quality">
+                <NativeSelect
+                  value={quality}
+                  onChange={setQuality}
+                  options={IMAGE_QUALITY_PRESETS.map((item) => ({
+                    id: item.id,
+                    label:
+                      item.label +
+                      " - " +
+                      getImageGenerationSettings({ aspectRatio, outputSize, quality: item.id, nsfw }).steps +
+                      " steps",
+                  }))}
+                />
+              </Field>
+            </div>
+
+            <Disclosure label="Advanced" open={advancedOpen} onToggle={() => setAdvancedOpen((value) => !value)}>
+              <Field label="Output resolution">
+                <ReadOnlyField>{settings.resolution}</ReadOnlyField>
+              </Field>
+
+              <Field
+                label="Seed"
+                hint={seedIsValid ? "Blank gives a new random result each run." : "Seed must be 0 or higher."}
+              >
+                <input
+                  value={seed}
+                  inputMode="numeric"
+                  maxLength={10}
+                  onChange={(event) => setSeed(event.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
+                  placeholder="Random"
+                  aria-invalid={!seedIsValid}
+                  className={
+                    "w-full h-11 px-3 rounded-lg border bg-surface-2 text-sm tabular placeholder:text-muted-foreground focus:outline-none " +
+                    (seedIsValid ? "border-border focus:border-primary/60" : "border-destructive")
+                  }
+                />
+              </Field>
+
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-2 px-3 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Unrestricted model</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{settings.model}</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={nsfw}
+                  onClick={() => setNsfw(!nsfw)}
+                  className={
+                    "relative h-6 w-11 shrink-0 rounded-full transition-colors " +
+                    (nsfw ? "bg-primary" : "bg-muted-foreground/30")
+                  }
+                >
+                  <span
+                    className={
+                      "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform " +
+                      (nsfw ? "translate-x-[22px]" : "translate-x-0.5")
+                    }
+                  />
+                </button>
               </div>
-            )}
-            {checkingUser && (
-              <div className="flex items-start gap-2 rounded-lg border border-blue-400/30 bg-blue-500/15 p-3 text-sm text-blue-100">
-                <Loader2 className="w-4 h-4 mt-0.5 flex-shrink-0 animate-spin" />
-                <span>Checking your Google account...</span>
-              </div>
-            )}
+            </Disclosure>
+
+            {errorMessage && <Notice tone="error">{errorMessage}</Notice>}
+            {checkingUser && <Notice tone="loading">Checking your Google account</Notice>}
             {!checkingUser && !isSignedIn && (
-              <div className="flex items-start gap-2 rounded-lg border border-yellow-400/30 bg-yellow-500/15 p-3 text-sm text-yellow-100">
-                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>Google sign-in is required so images stay private to your account.</span>
-              </div>
+              <Notice tone="warning">Sign in with Google so images stay private to your account.</Notice>
             )}
 
-            {!checkingUser && !isSignedIn ? (
-              <Button onClick={loginWithGoogle} className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 gap-2">
-                <LogIn className="w-5 h-5" />
-                Continue with Google
-              </Button>
-            ) : (
-              <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 gap-2">
-                {isGenerating ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> Generating with {nsfw ? "WAI NSFW" : "FLUX"}...</>
-                ) : (
-                  <><Sparkles className="w-5 h-5" /> Generate Image</>
+            <StickyAction>
+              {!checkingUser && !isSignedIn ? (
+                <GenerateButton onClick={loginWithGoogle} label="Continue with Google" icon={LogIn} />
+              ) : (
+                <GenerateButton
+                  onClick={handleGenerate}
+                  disabled={!canGenerate}
+                  busy={isGenerating}
+                  busyLabel="Generating"
+                  label="Generate image"
+                  icon={Sparkles}
+                />
+              )}
+            </StickyAction>
+          </div>
+
+          {/* ---------------- Canvas ---------------- */}
+          <div ref={resultRef} className="lg:sticky lg:top-6">
+            <Panel className="overflow-hidden">
+              <div className="flex items-center gap-2 border-b border-border px-4 h-11">
+                <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                <span className="text-[13px] font-medium">Output</span>
+                {isGenerating && (
+                  <span className="ml-auto flex items-center gap-1.5 text-[11px] text-primary animate-breathe">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    Working
+                  </span>
                 )}
-              </Button>
-            )}
-          </div>
-        </div>
+                {!isGenerating && generatedItem?.image_url && (
+                  <span className="ml-auto text-[11px] text-success">Complete</span>
+                )}
+              </div>
 
-        <div ref={resultRef} className="mt-8 rounded-3xl border border-background/10 bg-background/[0.06] overflow-hidden min-h-[360px]">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-background/10">
-            <span className="text-sm font-semibold flex items-center gap-2"><ImageIcon className="w-4 h-4 text-primary" /> Output</span>
-            <div className="flex items-center gap-2">
-              {generatedItem?.image_url && <Badge className="bg-purple-500/20 text-purple-100 border-purple-400/20">{generatedItem._engineLabel || "Hugging Face"}</Badge>}
-              {generatedItem?.image_url && <Badge className="bg-green-500/20 text-green-100 border-green-400/20">Completed</Badge>}
-              {isGenerating && <Badge className="bg-blue-500/20 text-blue-100 border-blue-400/20 animate-pulse">Generating...</Badge>}
-            </div>
-          </div>
-
-          <div className="p-5 flex items-center justify-center min-h-[310px]">
-            {isGenerating && (
-              <div className="text-center">
-                <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto mb-3" />
-                <p className="font-medium">Generating your image...</p>
-                <p className="text-sm text-background/55 mt-1">Free Spaces may briefly queue during busy periods.</p>
+              <div className="p-3">
+                {isGenerating ? (
+                  <div
+                    className="skeleton w-full rounded-lg"
+                    style={{ aspectRatio: settings.width / settings.height }}
+                  />
+                ) : generatedItem?.image_url ? (
+                  <>
+                    <img
+                      src={generatedItem.image_url}
+                      alt={generatedItem.prompt}
+                      className="w-full rounded-lg object-contain max-h-[62dvh] bg-black no-drag"
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground tabular">
+                      <span className="rounded-md bg-muted px-2 py-1">{generatedItem.resolution}</span>
+                      <span className="rounded-md bg-muted px-2 py-1">{generatedItem.aspect_ratio}</span>
+                      <span className="rounded-md bg-muted px-2 py-1">{generatedItem.steps} steps</span>
+                      {generatedItem.seed !== undefined && (
+                        <span className="rounded-md bg-muted px-2 py-1">seed {generatedItem.seed}</span>
+                      )}
+                    </div>
+                    {saveMessage && <p className="mt-2 text-xs text-muted-foreground">{saveMessage}</p>}
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={async () =>
+                          setSaveMessage(
+                            await shareMedia({
+                              url: generatedItem.image_url,
+                              kind: "image",
+                              id: generatedItem.id,
+                              prompt: generatedItem.prompt,
+                            })
+                          )
+                        }
+                        className="flex-1 h-11 rounded-lg bg-secondary text-sm font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                      >
+                        <Share2 className="w-4 h-4" /> Save
+                      </button>
+                      <Link
+                        to="/image-gallery"
+                        className="flex-1 h-11 rounded-lg border border-border text-sm font-medium flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                      >
+                        <Images className="w-4 h-4" /> Gallery
+                      </Link>
+                    </div>
+                  </>
+                ) : (
+                  <div className="grid place-items-center rounded-lg border border-dashed border-border py-20 text-center">
+                    <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
+                    <p className="mt-3 text-sm text-muted-foreground">Your image appears here</p>
+                    <p className="mt-1 text-xs text-muted-foreground/70">
+                      Free Spaces can queue for a moment when busy
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-            {!isGenerating && !generatedItem && (
-              <div className="text-center text-background/50">
-                <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                <p className="text-sm">Your generated image will appear here</p>
-              </div>
-            )}
-            {generatedItem?.image_url && !isGenerating && (
-              <div className="w-full">
-                <div className="rounded-2xl overflow-hidden border border-background/10 bg-black mb-4">
-                  <img src={generatedItem.image_url} alt={generatedItem.prompt} className="w-full max-h-[620px] object-contain" />
-                </div>
-                <div className="rounded-xl bg-black/20 border border-background/10 p-3">
-                  <p className="text-xs font-medium text-background/55 mb-1">Prompt</p>
-                  <p className="text-sm leading-relaxed">{generatedItem.prompt}</p>
-                </div>
-                <div className="mt-4 flex gap-2">
-                  <Link to="/image-gallery" className="flex-1">
-                    <Button variant="outline" className="w-full border-background/20 text-background hover:bg-background/10">
-                      View in Image Gallery
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            )}
+            </Panel>
           </div>
         </div>
       </div>
