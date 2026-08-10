@@ -213,7 +213,7 @@ export default function Layout() {
       <Sidebar activeId={activeId} />
       <TopBar title={title} onOpenAccount={() => setAccountOpen(true)} />
 
-      <main className="lg:pl-[248px] pb-tabbar lg:pb-0">
+      <main className="lg:pl-[248px] pb-tabsafe lg:pb-0">
         <Outlet />
       </main>
 

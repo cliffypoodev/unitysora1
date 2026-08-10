@@ -138,7 +138,7 @@
     padding-right: env(safe-area-inset-right);
   }
   /* Clears the fixed bottom tab bar plus the home indicator */
-  .pb-tabbar {
+  .pb-tabsafe {
     padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 0.5rem);
   }
 
