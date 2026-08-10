@@ -48,7 +48,9 @@ function findMediaUrl(value: unknown): string | null {
 async function saveVideo(base44: ReturnType<typeof createClientFromRequest>, sourceUrl: string, token?: string) {
   const headers = token ? { Authorization: "Bearer " + token } : undefined;
   const response = await fetch(sourceUrl, { headers });
-  if (!response.ok) throw new Error("Hugging Face returned a video URL that could not be downloaded (" + response.status + ").");
+  if (!response.ok) {
+    throw new Error("Hugging Face returned a video URL that could not be downloaded (" + response.status + ").");
+  }
 
   const blob = await response.blob();
   if (!blob.size) throw new Error("Hugging Face returned an empty video.");
@@ -63,17 +65,21 @@ async function saveVideo(base44: ReturnType<typeof createClientFromRequest>, sou
   return uploaded.file_url;
 }
 
+function jsonResponse(body: unknown, status: number) {
+  return Response.json(body, { status });
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    if (!user) return Response.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    if (!user) return jsonResponse({ success: false, error: "Unauthorized" }, 401);
 
     const input = await req.json().catch(() => ({}));
     const prompt = String(input?.prompt || "").trim();
     const referenceImageUrl = String(input?.reference_image_url || "").trim();
-    if (!prompt) return Response.json({ success: false, error: "Prompt is required." }, { status: 400 });
-    if (prompt.length > 4000) return Response.json({ success: false, error: "Prompt must be 4,000 characters or fewer." }, { status: 400 });
+    if (!prompt) return jsonResponse({ success: false, error: "Prompt is required." }, 400);
+    if (prompt.length > 4000) return jsonResponse({ success: false, error: "Prompt must be 4,000 characters or fewer." }, 400);
 
     const width = normalizeDimension(input?.width, 512, 1920, 1024);
     const height = normalizeDimension(input?.height, 512, 1080, 576);
@@ -87,7 +93,7 @@ Deno.serve(async (req) => {
 
     const client = await Client.connect(space, token ? { token } : {});
     const imageInput = referenceImageUrl ? handle_file(referenceImageUrl) : null;
-    const prediction = await client.predict(apiName, [
+    const job = client.submit(apiName, [
       prompt,
       imageInput,
       width,
@@ -98,28 +104,91 @@ Deno.serve(async (req) => {
       seed,
     ]);
 
-    const sourceUrl = findMediaUrl(prediction?.data);
-    if (!sourceUrl) throw new Error("The Hugging Face video Space completed without returning a video URL.");
+    const encoder = new TextEncoder();
+    let heartbeatId: number | undefined;
+    let closed = false;
 
-    const storedUrl = await saveVideo(base44, sourceUrl, token);
-    return Response.json({
-      success: true,
-      provider: "huggingface-space",
-      space,
-      model: "Wan 2.2 TI2V 5B",
-      video_url: storedUrl,
-      thumbnail_url: storedUrl,
-      source_video_url: sourceUrl,
-      width,
-      height,
-      num_frames: frames,
-      num_inference_steps: steps,
-      guidance_scale: guidance,
-      seed,
-      mode: referenceImageUrl ? "i2v" : "t2v",
+    const stream = new ReadableStream({
+      start(controller) {
+        const send = (event: unknown) => {
+          if (closed) return;
+          controller.enqueue(encoder.encode("data: " + JSON.stringify(event) + "\n\n"));
+        };
+
+        send({ type: "status", message: "Connected to Hugging Face. Waiting for a shared GPU..." });
+        heartbeatId = setInterval(() => {
+          send({ type: "status", message: "Generation is still running on Hugging Face..." });
+        }, 15000);
+
+        (async () => {
+          try {
+            for await (const message of job) {
+              if (message?.type === "status") {
+                const queuePosition = message?.position;
+                const messageText = Number.isFinite(queuePosition)
+                  ? "Queued on Hugging Face (position " + queuePosition + ")."
+                  : "Hugging Face is processing the video...";
+                send({ type: "status", message: messageText });
+              }
+
+              if (message?.type === "data") {
+                const sourceUrl = findMediaUrl(message.data);
+                if (!sourceUrl) continue;
+
+                send({ type: "status", message: "Saving the finished video to private app storage..." });
+                const storedUrl = await saveVideo(base44, sourceUrl, token);
+                send({
+                  type: "complete",
+                  data: {
+                    success: true,
+                    provider: "huggingface-space",
+                    space,
+                    model: "Wan 2.2 TI2V 5B",
+                    video_url: storedUrl,
+                    thumbnail_url: storedUrl,
+                    source_video_url: sourceUrl,
+                    width,
+                    height,
+                    num_frames: frames,
+                    num_inference_steps: steps,
+                    guidance_scale: guidance,
+                    seed,
+                    mode: referenceImageUrl ? "i2v" : "t2v",
+                  },
+                });
+                closed = true;
+                if (heartbeatId !== undefined) clearInterval(heartbeatId);
+                controller.close();
+                return;
+              }
+            }
+
+            throw new Error("The Hugging Face video Space ended without returning a video.");
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Hugging Face video generation failed.";
+            send({ type: "error", error: message });
+            closed = true;
+            if (heartbeatId !== undefined) clearInterval(heartbeatId);
+            controller.close();
+          }
+        })();
+      },
+      cancel() {
+        closed = true;
+        if (heartbeatId !== undefined) clearInterval(heartbeatId);
+        if (typeof job.cancel === "function") job.cancel();
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-cache, no-transform",
+        "x-accel-buffering": "no",
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Hugging Face video generation failed.";
-    return Response.json({ success: false, error: message }, { status: 500 });
+    return jsonResponse({ success: false, error: message }, 500);
   }
 });
