@@ -28,6 +28,30 @@ const QUALITY_PRESETS = {
   Quality: { steps: 35, guidance: 5.5, description: "More detail with a longer queue time." },
 };
 
+const OPEN_SORA_SETTINGS = {
+  size: { value: "512x512", label: "512 × 512", width: 512, height: 512 },
+  duration: { value: "3s", label: "About 3 seconds", frames: 16 },
+  quality: { steps: 50, guidance: 7, description: "Open-Sora uses a fixed 50-step pipeline." },
+};
+
+const VIDEO_MODELS = {
+  wan_2_2: {
+    label: "Wan 2.2 TI2V 5B",
+    shortLabel: "Wan 2.2",
+    space: "OpenKing/wan2-video-generation",
+  },
+  minimax_h3: {
+    label: "MiniMax-H3 Turbo LoRA",
+    shortLabel: "MiniMax-H3",
+    space: "akhaliq/MiniMax-H3-Turbo-Lora",
+  },
+  open_sora: {
+    label: "Open-Sora v1 HQ",
+    shortLabel: "Open-Sora",
+    space: "kadirnar/Open-Sora",
+  },
+};
+
 function getGenerationErrorMessage(error) {
   return (
     error?.response?.data?.error ||
@@ -133,9 +157,13 @@ export default function GeneratePrivate() {
 
   const ownerFields = getOwnerFields(resolvedUser);
   const isSignedIn = Boolean(isAuthenticated || resolvedUser?.id || resolvedUser?.email);
-  const selectedSize = VIDEO_SIZES[aspectRatio] || VIDEO_SIZES["16:9"];
-  const selectedDuration = DURATION_OPTIONS[duration] || DURATION_OPTIONS["4s"];
-  const selectedQuality = QUALITY_PRESETS[qualityMode] || QUALITY_PRESETS.Balanced;
+  const isOpenSora = videoModel === "open_sora";
+  const selectedModel = VIDEO_MODELS[videoModel] || VIDEO_MODELS.wan_2_2;
+  const selectedSize = isOpenSora ? OPEN_SORA_SETTINGS.size : VIDEO_SIZES[aspectRatio] || VIDEO_SIZES["16:9"];
+  const selectedDuration = isOpenSora ? OPEN_SORA_SETTINGS.duration : DURATION_OPTIONS[duration] || DURATION_OPTIONS["4s"];
+  const selectedQuality = isOpenSora ? OPEN_SORA_SETTINGS.quality : QUALITY_PRESETS[qualityMode] || QUALITY_PRESETS.Balanced;
+  const effectiveAspectRatio = isOpenSora ? "1:1" : aspectRatio;
+  const effectiveDuration = isOpenSora ? OPEN_SORA_SETTINGS.duration.value : duration;
   const canGenerate =
     Boolean(prompt.trim()) &&
     isSignedIn &&
@@ -143,13 +171,21 @@ export default function GeneratePrivate() {
     !checkingUser &&
     !isGenerating &&
     !uploadingImage &&
-    (mode !== "i2v" || Boolean(referenceImageUrl));
+    (isOpenSora || mode !== "i2v" || Boolean(referenceImageUrl));
 
   const clearReferenceImage = () => {
     if (referenceImage) URL.revokeObjectURL(referenceImage);
     setReferenceImage(null);
     setReferenceImageUrl("");
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleVideoModelChange = (value) => {
+    setVideoModel(value);
+    if (value === "open_sora") {
+      setMode("t2v");
+      clearReferenceImage();
+    }
   };
 
   const handleImageUpload = async (file) => {
@@ -209,10 +245,11 @@ export default function GeneratePrivate() {
     let newRecord = null;
 
     try {
-      const seed = Math.floor(Math.random() * 2147483647);
+      const seed = isOpenSora ? 42 : Math.floor(Math.random() * 2147483647);
+      const effectiveMode = isOpenSora ? "t2v" : mode;
       const payload = {
         prompt: finalPrompt,
-        reference_image_url: mode === "i2v" ? referenceImageUrl : "",
+        reference_image_url: effectiveMode === "i2v" ? referenceImageUrl : "",
         width: selectedSize.width,
         height: selectedSize.height,
         num_frames: selectedDuration.frames,
@@ -220,25 +257,31 @@ export default function GeneratePrivate() {
         guidance_scale: selectedQuality.guidance,
         seed,
         model: videoModel,
-        aspect_ratio: aspectRatio,
-        duration_seconds: Number(duration.replace("s", "")),
+        aspect_ratio: effectiveAspectRatio,
+        duration_seconds: Number(effectiveDuration.replace("s", "")),
       };
 
       newRecord = await base44.entities.GeneratedVideo.create({
         ...ownerFields,
         prompt: finalPrompt,
         resolution: selectedSize.value,
-        aspect_ratio: aspectRatio,
-        duration,
+        aspect_ratio: effectiveAspectRatio,
+        duration: effectiveDuration,
         seed,
         status: "generating",
-        mode,
-        reference_image_url: mode === "i2v" ? referenceImageUrl : undefined,
+        mode: effectiveMode,
+        reference_image_url: effectiveMode === "i2v" ? referenceImageUrl : undefined,
+        provider: "huggingface-space",
+        space: selectedModel.space,
+        model: selectedModel.label,
+        num_frames: selectedDuration.frames,
+        sampling_steps: selectedQuality.steps,
+        cfg_scale: selectedQuality.guidance,
         generation_payload_debug: JSON.stringify({
           route: "huggingFaceVideo",
           provider: "huggingface-space",
-          space: videoModel === "minimax_h3" ? "akhaliq/MiniMax-H3-Turbo-Lora" : "OpenKing/wan2-video-generation",
-          model: videoModel === "minimax_h3" ? "MiniMax-H3 Turbo LoRA" : "Wan 2.2 TI2V 5B",
+          space: selectedModel.space,
+          model: selectedModel.label,
           quality_mode: qualityMode,
           payload,
         }),
@@ -256,6 +299,17 @@ export default function GeneratePrivate() {
         thumbnail_url: videoResult.thumbnail_url || videoResult.video_url,
         video_url: videoResult.video_url,
         source_video_url: videoResult.source_video_url || videoResult.video_url,
+        resolution: `${videoResult.width || selectedSize.width}x${videoResult.height || selectedSize.height}`,
+        aspect_ratio: isOpenSora ? "1:1" : effectiveAspectRatio,
+        duration: videoResult.duration_seconds ? `${videoResult.duration_seconds}s` : effectiveDuration,
+        seed: Number.isInteger(Number(videoResult.seed)) ? Number(videoResult.seed) : seed,
+        mode: videoResult.mode || effectiveMode,
+        provider: videoResult.provider || "huggingface-space",
+        space: videoResult.space || selectedModel.space,
+        model: videoResult.model || selectedModel.label,
+        num_frames: Number(videoResult.num_frames) || selectedDuration.frames,
+        sampling_steps: Number(videoResult.num_inference_steps) || selectedQuality.steps,
+        cfg_scale: Number(videoResult.guidance_scale) || selectedQuality.guidance,
         error_message: "",
       };
 
@@ -311,10 +365,12 @@ export default function GeneratePrivate() {
               </button>
               <button
                 type="button"
-                onClick={() => setMode("i2v")}
+                onClick={() => !isOpenSora && setMode("i2v")}
+                disabled={isOpenSora}
                 className={[
                   "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors",
                   mode === "i2v" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  isOpenSora ? "cursor-not-allowed opacity-50" : "",
                 ].join(" ")}
               >
                 <ImageIcon className="w-4 h-4" />
@@ -327,6 +383,7 @@ export default function GeneratePrivate() {
               <Textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
+                maxLength={3500}
                 placeholder="Describe the motion, camera movement, subject, lighting, and scene..."
                 className="min-h-[140px] text-sm resize-none"
               />
@@ -381,18 +438,24 @@ export default function GeneratePrivate() {
 
             <div>
               <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Model</Label>
-              <Select value={videoModel} onValueChange={setVideoModel}>
+              <Select value={videoModel} onValueChange={handleVideoModelChange}>
                 <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="wan_2_2">Wan 2.2 TI2V 5B</SelectItem>
                   <SelectItem value="minimax_h3">MiniMax-H3 Turbo LoRA</SelectItem>
+                  <SelectItem value="open_sora">Open-Sora v1 HQ</SelectItem>
                 </SelectContent>
               </Select>
+              {isOpenSora && (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Text-to-video only · fixed 512 × 512 output · about 3 seconds · fixed seed 42.
+                </p>
+              )}
             </div>
 
             <div>
               <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Quality Mode</Label>
-              <Select value={qualityMode} onValueChange={setQualityMode} disabled={videoModel === "minimax_h3"}>
+              <Select value={qualityMode} onValueChange={setQualityMode} disabled={videoModel === "minimax_h3" || isOpenSora}>
                 <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.keys(QUALITY_PRESETS).map((value) => (
@@ -400,13 +463,19 @@ export default function GeneratePrivate() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="mt-1.5 text-xs text-muted-foreground">{videoModel === "minimax_h3" ? "Turbo LoRA generation uses its optimized 6-step pipeline." : selectedQuality.description}</p>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {isOpenSora
+                  ? OPEN_SORA_SETTINGS.quality.description
+                  : videoModel === "minimax_h3"
+                    ? "Turbo LoRA generation uses its optimized 6-step pipeline."
+                    : selectedQuality.description}
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Aspect Ratio</Label>
-                <Select value={aspectRatio} onValueChange={setAspectRatio}>
+                <Select value={effectiveAspectRatio} onValueChange={setAspectRatio} disabled={isOpenSora}>
                   <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.keys(VIDEO_SIZES).map((value) => (
@@ -425,8 +494,8 @@ export default function GeneratePrivate() {
 
               <div>
                 <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Duration</Label>
-                <Select value={duration} onValueChange={setDuration}>
-                  <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                <Select value={effectiveDuration} onValueChange={setDuration} disabled={isOpenSora}>
+                  <SelectTrigger className="text-sm h-9"><SelectValue placeholder={selectedDuration.label} /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(DURATION_OPTIONS).map(([value, option]) => (
                       <SelectItem key={value} value={value}>{option.label}</SelectItem>
@@ -463,7 +532,7 @@ export default function GeneratePrivate() {
             ) : (
               <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 gap-2">
                 {isGenerating ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> Generating with {videoModel === "minimax_h3" ? "MiniMax-H3" : "Wan 2.2"}...</>
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Generating with {selectedModel.shortLabel}...</>
                 ) : (
                   <><Sparkles className="w-5 h-5" /> Generate Video</>
                 )}
