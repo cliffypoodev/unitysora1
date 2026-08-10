@@ -4,7 +4,21 @@
   "properties": {
     "prompt": {
       "type": "string",
-      "description": "Text prompt used to generate the image"
+      "description": "Original user prompt"
+    },
+    "styled_prompt": {
+      "type": "string",
+      "description": "Prompt sent to the image provider after applying the selected art style"
+    },
+    "negative_prompt": {
+      "type": "string",
+      "description": "Negative style guidance sent when supported by the selected provider"
+    },
+    "style_id": {
+      "type": "string"
+    },
+    "style_label": {
+      "type": "string"
     },
     "owner_user_id": {
       "type": "string"
@@ -42,6 +56,32 @@
       ],
       "default": "1:1"
     },
+    "orientation": {
+      "type": "string",
+      "enum": [
+        "square",
+        "landscape",
+        "portrait"
+      ],
+      "default": "square"
+    },
+    "output_size": {
+      "type": "string",
+      "enum": [
+        "standard",
+        "large"
+      ],
+      "default": "standard"
+    },
+    "quality": {
+      "type": "string",
+      "enum": [
+        "fast",
+        "balanced",
+        "maximum"
+      ],
+      "default": "balanced"
+    },
     "width": {
       "type": "number",
       "default": 1024
@@ -56,6 +96,19 @@
     },
     "seed": {
       "type": "number"
+    },
+    "nsfw": {
+      "type": "boolean",
+      "default": false
+    },
+    "provider": {
+      "type": "string"
+    },
+    "space": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
     },
     "status": {
       "type": "string",
