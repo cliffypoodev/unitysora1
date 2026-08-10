@@ -9,29 +9,26 @@ module.exports = {
   theme: {
     container: {
       center: true,
-      padding: '2rem',
-      screens: {
-        '2xl': '1400px',
-      },
+      padding: '1rem',
+      screens: { '2xl': '1600px' },
     },
     extend: {
-
       fontFamily: {
-
-        heading: ['"Mona Sans VF"', 'sans-serif'],
-
-
-        body: ['"Mona Sans VF"', 'sans-serif'],
-        sans: ['"Mona Sans VF"', 'sans-serif'],
-
+        sans: ['var(--font-body)'],
+        body: ['var(--font-body)'],
+        heading: ['var(--font-heading)'],
+        mono: ['var(--font-mono)'],
       },
-
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        surface: {
+          DEFAULT: 'hsl(var(--surface))',
+          2: 'hsl(var(--surface-2))',
+        },
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
@@ -44,6 +41,9 @@ module.exports = {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
         },
+        success: 'hsl(var(--success))',
+        warning: 'hsl(var(--warning))',
+        info: 'hsl(var(--info))',
         muted: {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))',
@@ -62,9 +62,20 @@ module.exports = {
         },
       },
       borderRadius: {
+        xl: 'calc(var(--radius) + 4px)',
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        md: 'calc(var(--radius) - 4px)',
+        sm: 'calc(var(--radius) - 6px)',
+      },
+      spacing: {
+        safe: 'env(safe-area-inset-bottom)',
+        topbar: 'var(--topbar-h)',
+        tabbar: 'var(--tabbar-h)',
+      },
+      boxShadow: {
+        lift: '0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.7)',
+        pop: '0 24px 64px -16px rgba(0,0,0,0.8)',
+        glow: '0 0 0 1px hsl(var(--primary) / 0.35), 0 8px 32px -8px hsl(var(--primary) / 0.4)',
       },
       keyframes: {
         'accordion-down': {
