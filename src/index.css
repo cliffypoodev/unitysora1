@@ -1,130 +1,234 @@
-
-@import url('https://fonts.googleapis.com/css2?family=Mona+Sans+VF:wght@300;400;500;600;700&display=swap');
-
-
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ------------------------------------------------------------------
+   UnitySora design tokens
+   Near-neutral dark canvas, one indigo accent used sparingly.
+   Content is the only saturated thing on screen.
+   ------------------------------------------------------------------ */
 
 @layer base {
-  :root {
+  :root,
+  .dark {
+    /* Canvas + surfaces */
+    --background: 240 8% 5%;
+    --surface: 240 7% 8%;
+    --surface-2: 240 6% 11%;
+    --card: 240 7% 8%;
+    --card-foreground: 240 10% 96%;
+    --popover: 240 7% 9%;
+    --popover-foreground: 240 10% 96%;
 
-    --accent: 212.4 92.1% 44.5%;
+    /* Text */
+    --foreground: 240 10% 96%;
+    --muted: 240 6% 13%;
+    --muted-foreground: 240 5% 58%;
 
-    --accent-foreground: 210 40% 98%;
+    /* Lines + fields */
+    --border: 240 6% 17%;
+    --input: 240 6% 17%;
+    --ring: 250 83% 66%;
 
-    --background: 0 0% 100%;
-
-    --border: 210 17.5% 84.3%;
-
-    --card: 0 0% 100%;
-
-    --card-foreground: 222.2 84% 4.9%;
-
-    --destructive: 0 84.2% 60.2%;
-
-    --destructive-foreground: 210 40% 98%;
-
-    --font-body: 'Mona Sans VF', system-ui, sans-serif;
-
-    --font-heading: 'Mona Sans VF', system-ui, sans-serif;
-
-    --foreground: 213.3 12.7% 13.9%;
-
-    --input: 214.3 31.8% 91.4%;
-
-    --muted: 210 28.6% 97.3%;
-
-    --muted-foreground: 211.4 10.6% 39%;
-
-    --popover: 0 0% 100%;
-
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 137.1 62.9% 32.7%;
-
+    /* Brand accent */
+    --primary: 250 83% 66%;
     --primary-foreground: 0 0% 100%;
 
-    --radius: 0.38rem;
+    /* shadcn uses --accent for hover/active surfaces, NOT a brand colour.
+       Keeping it neutral is what stops menus flashing bright blue. */
+    --accent: 240 6% 15%;
+    --accent-foreground: 240 10% 96%;
+    --secondary: 240 6% 13%;
+    --secondary-foreground: 240 10% 96%;
 
-    --ring: 212.4 92.1% 44.5%;
+    /* Status */
+    --destructive: 356 75% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 60% 45%;
+    --warning: 45 85% 58%;
+    --info: 214 90% 62%;
 
-    --secondary: 0 0% 97.3%;
+    --radius: 0.75rem;
 
-    --secondary-foreground: 222.2 84% 4.9%;
+    --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+      Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-heading: var(--font-body);
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+      "Liberation Mono", monospace;
 
+    /* Chrome heights, used for scroll padding + sticky offsets */
+    --topbar-h: 3.25rem;
+    --tabbar-h: 3.75rem;
   }
 }
-
 
 @layer base {
   * {
     @apply border-border;
   }
 
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-body);
+    /* Stops the whole page rubber-banding behind fixed chrome on iOS */
+    overscroll-behavior-y: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    @apply tracking-[-0.015em];
+  }
+
+  /* Numbers in metadata rows shouldn't jitter as they change */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  code, pre, .mono {
+    font-family: var(--font-mono);
+  }
+
+  /* iOS zooms any focused field under 16px. Keep inputs at 16px on touch. */
+  @media (max-width: 767px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.35);
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
 }
 
+/* ------------------------------------------------------------------
+   Utilities
+   ------------------------------------------------------------------ */
 
-body { font-family: var(--font-body) !important; }
-h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading) !important; }
+@layer utilities {
+  /* Safe areas — iPhone notch / home indicator */
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pl-safe { padding-left: env(safe-area-inset-left); }
+  .pr-safe { padding-right: env(safe-area-inset-right); }
+  .mb-safe { margin-bottom: env(safe-area-inset-bottom); }
+  .inset-safe {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  /* Clears the fixed bottom tab bar plus the home indicator */
+  .pb-tabbar {
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 0.5rem);
+  }
 
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
+  .touch-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
 
-/* Open-Sora GitHub-style custom animations and utilities */
+  .glass {
+    background: hsl(var(--background) / 0.72);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
 
-@keyframes tooltip-appear { 0% { opacity: 0; } to { opacity: 1; } }
-@keyframes fade-in { 0% { opacity: 0; } to { opacity: 1; } }
-@keyframes fade-up { 0% { opacity: .8; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
-@keyframes scale-in { 0% { opacity: 0; transform: scale(.5); } to { opacity: 1; transform: scale(1); } }
-@keyframes pulse-in { 0% { transform: scale(1); } 50% { transform: scale3d(1.1, 1.1, 1.1); } to { transform: scale(1); } }
+  .surface {
+    background: hsl(var(--surface));
+  }
+  .surface-2 {
+    background: hsl(var(--surface-2));
+  }
 
-@keyframes floatA {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(3deg); }
+  /* Checkerboard behind transparent PNGs */
+  .checker {
+    background-image:
+      linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%),
+      linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%),
+      linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  }
+
+  .no-drag {
+    -webkit-user-drag: none;
+    user-select: none;
+  }
 }
-@keyframes floatB {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-15px) rotate(-2deg); }
-}
-@keyframes floatC {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-25px) rotate(2deg); }
+
+/* Desktop scrollbars — thin, neutral, no colour */
+@media (pointer: fine) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background-clip: content-box; background-color: hsl(240 6% 26%); }
 }
 
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+/* ------------------------------------------------------------------
+   Motion
+   ------------------------------------------------------------------ */
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scale-in { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+.animate-fade-in { animation: fade-in 0.25s ease-out both; }
+.animate-fade-up { animation: fade-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-scale-in { animation: scale-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-sheet-up { animation: sheet-up 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-breathe { animation: breathe 1.8s ease-in-out infinite; }
+
+/* Loading tiles */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--surface-2)) 37%,
+    hsl(var(--muted)) 63%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
 }
 
-@keyframes gradient-x {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-
-.animate-gradient-x {
-  animation: gradient-x 6s ease infinite;
-  background-size: 200% auto;
-}
-
-/* Scrollbar styling */
-.scrollbar-hide::-webkit-scrollbar { display: none; }
-.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-
-/* Code blocks */
-pre, code {
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-}
-
-/* Smooth hover depth on cards */
-.card-hover {
-  transition: all 0.3s ease;
-}
-.card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px -8px hsl(var(--primary) / 0.2);
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
