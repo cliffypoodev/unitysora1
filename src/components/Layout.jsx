@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { LogIn, LogOut, UserRound } from "lucide-react";
+import { LogIn, LogOut, UserRound, Wand2 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { getActiveNavId, getPageTitle, NAV_ITEMS } from "@/components/shell/nav";
+import { usePromptBus } from "@/lib/PromptBus";
+import PromptStudio from "@/components/prompt/PromptStudio";
 
 const LOGO =
   "https://media.base44.com/images/public/6a036e3dc4cd55282c5c04ac/3cb3a56cc_ChatGPT_Image_May_12__2026__02_08_14_PM.png";
@@ -68,13 +70,24 @@ function AccountPanel({ compact = false, onNavigate }) {
 /* Desktop rail                                                        */
 /* ------------------------------------------------------------------ */
 
-function Sidebar({ activeId }) {
+function Sidebar({ activeId, onOpenStudio }) {
   return (
     <aside className="hidden lg:flex fixed inset-y-0 left-0 z-40 w-[248px] flex-col border-r border-border surface">
       <Link to="/" className="flex items-center gap-2.5 h-16 px-5 shrink-0">
         <img src={LOGO} alt="" className="h-7 w-7 rounded-md object-cover no-drag" />
         <span className="font-semibold tracking-tight">UnitySora</span>
       </Link>
+
+      <div className="px-3 pb-2">
+        <button
+          type="button"
+          onClick={onOpenStudio}
+          className="flex h-10 w-full items-center gap-2.5 rounded-lg border border-primary/30 bg-primary/10 px-3 text-sm font-medium text-foreground transition-colors hover:bg-primary/15"
+        >
+          <Wand2 className="h-[18px] w-[18px] text-primary" />
+          Prompt Studio
+        </button>
+      </div>
 
       <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
         {NAV_ITEMS.map((item) => {
