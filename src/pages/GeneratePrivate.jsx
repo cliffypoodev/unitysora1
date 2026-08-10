@@ -38,6 +38,53 @@ function getGenerationErrorMessage(error) {
   );
 }
 
+async function runHuggingFaceVideo(payload, onStatus) {
+  const response = await base44.functions.fetch("/huggingFaceVideo", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody?.error || "The Hugging Face video function could not start.");
+  }
+
+  if (!response.body) throw new Error("The Hugging Face video function did not return a progress stream.");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let completedResult = null;
+
+  while (!completedResult) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+    const blocks = buffer.split("\n\n");
+    buffer = blocks.pop() || "";
+
+    for (const block of blocks) {
+      const dataLine = block
+        .split("\n")
+        .find((line) => line.startsWith("data: "));
+      if (!dataLine) continue;
+
+      const event = JSON.parse(dataLine.slice(6));
+      if (event?.type === "status") onStatus(event.message || "Generating...");
+      if (event?.type === "error") throw new Error(event.error || "Hugging Face video generation failed.");
+      if (event?.type === "complete") completedResult = event.data;
+    }
+
+    if (done) break;
+  }
+
+  if (!completedResult?.success || !completedResult?.video_url) {
+    throw new Error("The Hugging Face Space ended without returning a saved video.");
+  }
+
+  return completedResult;
+}
+
 export default function GeneratePrivate() {
   const { user: contextUser, isAuthenticated, loginWithGoogle } = useAuth();
   const [resolvedUser, setResolvedUser] = useState(contextUser || null);
@@ -51,6 +98,7 @@ export default function GeneratePrivate() {
   const [referenceImageUrl, setReferenceImageUrl] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState("");
   const [generatedItem, setGeneratedItem] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const fileInputRef = useRef(null);
@@ -153,6 +201,7 @@ export default function GeneratePrivate() {
     }
 
     setIsGenerating(true);
+    setGenerationStatus("Preparing your Hugging Face video job...");
     setGeneratedItem(null);
     setErrorMessage("");
 
@@ -196,11 +245,7 @@ export default function GeneratePrivate() {
         rememberLocalOwnedVideoId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
       }
 
-      const response = await base44.functions.invoke("huggingFaceVideo", payload);
-      const videoResult = response?.data || response;
-      if (!videoResult?.success || !videoResult?.video_url) {
-        throw new Error(videoResult?.error || "The Hugging Face Space did not return a video.");
-      }
+      const videoResult = await runHuggingFaceVideo(payload, setGenerationStatus);
 
       const completedRecord = {
         status: "completed",
@@ -231,6 +276,7 @@ export default function GeneratePrivate() {
       setErrorMessage(message);
     } finally {
       setIsGenerating(false);
+      setGenerationStatus("");
     }
   };
 
@@ -438,7 +484,7 @@ export default function GeneratePrivate() {
                     <Loader2 className="w-8 h-8 text-primary animate-spin" />
                   </div>
                   <p className="text-foreground font-medium mb-1">Generating your video...</p>
-                  <p className="text-sm text-muted-foreground">Free shared GPUs can take several minutes or queue during busy periods.</p>
+                  <p className="text-sm text-muted-foreground">{generationStatus || "Free shared GPUs can take several minutes or queue during busy periods."}</p>
                 </div>
               )}
               {!isGenerating && !generatedItem && (
