@@ -14,6 +14,7 @@ const FALLBACK_MODELS = [
   "gemini-flash-latest",
   "gemini-2.0-flash-001",
 ];
+const OPENROUTER_MODEL = "google/gemini-2.5-flash";
 
 /**
  * Configurable harm categories are set to the most permissive value the API
@@ -103,6 +104,33 @@ async function callGemini(
   return { ok: response.ok, status: response.status, payload };
 }
 
+async function callOpenRouter(apiKey: string, contents: any[]) {
+  const messages = [
+    { role: "system", content: SYSTEM_INSTRUCTION },
+    ...contents.map((message: any) => ({
+      role: message.role === "model" ? "assistant" : "user",
+      content: message.parts.map((part: any) => part.text || "").join(""),
+    })),
+  ];
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer " + apiKey,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: OPENROUTER_MODEL,
+      messages,
+      temperature: 1,
+      top_p: 0.95,
+      max_tokens: 1200,
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  const text = String(payload?.choices?.[0]?.message?.content || "").trim();
+  return { ok: response.ok, status: response.status, payload, text };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
 
@@ -114,6 +142,7 @@ Deno.serve(async (req) => {
     if (!user) return jsonResponse({ success: false, error: "Sign in to use Prompt Studio." }, 401);
 
     const apiKey = secrets.get("GEMINI_API_KEY");
+    const openRouterApiKey = secrets.get("OPENROUTER_API_KEY");
     if (!apiKey) {
       return jsonResponse(
         {
@@ -151,8 +180,7 @@ Deno.serve(async (req) => {
         last.parts[0].text;
     }
 
-    const preferred = secrets.get("GEMINI_MODEL");
-    const models = preferred ? [preferred, ...FALLBACK_MODELS] : FALLBACK_MODELS;
+    const models = FALLBACK_MODELS;
 
     let lastError = "Gemini did not return a response.";
     let usedSafetySettings = true;
@@ -171,6 +199,19 @@ Deno.serve(async (req) => {
 
       if (!attempt.ok) {
         lastError = String(attempt.payload?.error?.message || "Gemini request failed.");
+        if (attempt.status === 429 && openRouterApiKey) {
+          const fallback = await callOpenRouter(openRouterApiKey, contents);
+          if (fallback.ok && fallback.text) {
+            return jsonResponse({
+              success: true,
+              text: fallback.text,
+              model: OPENROUTER_MODEL,
+              provider: "openrouter",
+            });
+          }
+          lastError = String(fallback.payload?.error?.message || "The backup Gemini route is also busy.");
+          return jsonResponse({ success: false, error: lastError }, fallback.status || 502);
+        }
         // 404 means this model name is not on this key's tier — try the next.
         if (attempt.status === 404 || attempt.status === 400) continue;
         return jsonResponse({ success: false, error: lastError }, attempt.status);
