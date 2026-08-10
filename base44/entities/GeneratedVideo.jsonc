@@ -19,6 +19,7 @@
       "type": "string",
       "enum": [
         "256x256",
+        "512x512",
         "360x640",
         "640x360",
         "576x1024",
@@ -47,6 +48,7 @@
       "type": "string",
       "enum": [
         "2s",
+        "3s",
         "4s",
         "5s",
         "8s",
@@ -65,6 +67,18 @@
       "default": 6.5
     },
     "seed": {
+      "type": "number"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "space": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "num_frames": {
       "type": "number"
     },
     "status": {
