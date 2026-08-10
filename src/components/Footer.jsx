@@ -1,5 +1,3 @@
-import { Link } from "react-router-dom";
-import { Github, ExternalLink } from "lucide-react";
 
 export default function Footer() {
   return (

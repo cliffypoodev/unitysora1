@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, ChevronRight, Code, Zap, Server, Cpu, Database, Play, ExternalLink, Copy, Check } from "lucide-react";
+import { ChevronRight, Code, Zap, Server, Cpu, Database, Play, ExternalLink, Copy, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 

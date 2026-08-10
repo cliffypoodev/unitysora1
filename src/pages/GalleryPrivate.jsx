@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, Clock, Filter, Heart, Image, Loader2, PlayCircle, Search, Square, Trash2, Wand2, X } from "lucide-react";
+import { CheckSquare, Clock, Filter, Heart, Image, PlayCircle, Search, Square, Trash2, Wand2, X } from "lucide-react";
 import VideoModal from "@/components/VideoModal";
 import GalleryVideoThumbnail from "@/components/gallery/GalleryVideoThumbnail";
 

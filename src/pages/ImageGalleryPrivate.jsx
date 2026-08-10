@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, Clock, Filter, Heart, Image, Loader2, Search, Square, Trash2, Wand2, X } from "lucide-react";
+import { CheckSquare, Clock, Heart, Image, Search, Square, Trash2, Wand2, X } from "lucide-react";
 
 function hasGeneratedImage(image) {
   return Boolean(image?.image_url && String(image.image_url).trim());
