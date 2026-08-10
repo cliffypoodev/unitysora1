@@ -9,9 +9,8 @@ import UserNotRegisteredError from "@/components/UserNotRegisteredError";
 import Home from "./pages/Home";
 import Docs from "./pages/Docs";
 import Generate from "./pages/GeneratePrivate";
-import Gallery from "./pages/GalleryPrivate";
 import GenerateImage from "./pages/GenerateImagePrivate";
-import ImageGallery from "./pages/ImageGalleryPrivate";
+import Gallery from "./pages/Gallery";
 import Layout from "./components/Layout";
 
 const LoadingScreen = () => (
@@ -55,9 +54,9 @@ const AuthenticatedApp = () => {
         <Route path="/" element={<Home />} />
         <Route path="/docs" element={<Docs />} />
         <Route path="/generate" element={<Generate />} />
-        <Route path="/gallery" element={<Gallery />} />
         <Route path="/generate-image" element={<GenerateImage />} />
-        <Route path="/image-gallery" element={<ImageGallery />} />
+        <Route path="/gallery" element={<Gallery />} />
+        <Route path="/image-gallery" element={<Gallery />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
