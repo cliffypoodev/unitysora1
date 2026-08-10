@@ -3,12 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, ImageIcon, Sparkles, Video } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import {
-  belongsToCurrentUser,
-  getOwnerFields,
-  readLocalOwnedImageIds,
-  readLocalOwnedVideoIds,
-} from "@/lib/videoOwnership";
+import { loadOwnedMedia, resolveUser } from "@/lib/ownedMedia";
 import GalleryVideoThumbnail from "@/components/gallery/GalleryVideoThumbnail";
 import { getAspectRatio } from "@/lib/mediaExport";
 
@@ -77,29 +72,17 @@ export default function Home() {
 
     async function loadRecent() {
       try {
-        const user = contextUser?.id || contextUser?.email ? contextUser : await base44.auth.me();
-        const { owner_user_id: ownerId, owner_email: ownerEmail } = getOwnerFields(user);
-        if (!ownerId && !ownerEmail) return;
+        const user = await resolveUser(contextUser);
+        if (!user) return;
 
-        const [imageResults, videoResults] = await Promise.all([
-          base44.entities.GeneratedImage.filter({ status: "completed" }, "-created_date", 60).catch(() => []),
-          base44.entities.GeneratedVideo.filter({ status: "completed" }, "-created_date", 60).catch(() => []),
+        const [ownedImages, ownedVideos] = await Promise.all([
+          loadOwnedMedia({ kind: "image", user, limit: 24 }),
+          loadOwnedMedia({ kind: "video", user, limit: 24 }),
         ]);
 
-        const ownedImages = readLocalOwnedImageIds(ownerId, ownerEmail);
-        const ownedVideos = readLocalOwnedVideoIds(ownerId, ownerEmail);
-
         if (cancelled) return;
-        setImages(
-          (imageResults || [])
-            .filter((item) => item.image_url && belongsToCurrentUser(item, ownerId, ownerEmail, ownedImages))
-            .slice(0, 12)
-        );
-        setVideos(
-          (videoResults || [])
-            .filter((item) => item.video_url && belongsToCurrentUser(item, ownerId, ownerEmail, ownedVideos))
-            .slice(0, 12)
-        );
+        setImages(ownedImages.slice(0, 12));
+        setVideos(ownedVideos.slice(0, 12));
       } catch {
         /* Home is decorative; a failed fetch should never block it. */
       }
