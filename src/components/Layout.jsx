@@ -147,36 +147,57 @@ function TopBar({ title, onOpenAccount }) {
   );
 }
 
-function TabBar({ activeId }) {
+function Tab({ item, active }) {
+  return (
+    <NavLink
+      to={item.to}
+      className="flex flex-col items-center justify-center gap-1 select-none active:opacity-60 transition-opacity"
+    >
+      <item.icon
+        className={[
+          "w-[22px] h-[22px] transition-colors",
+          active ? "text-primary" : "text-muted-foreground",
+        ].join(" ")}
+        strokeWidth={active ? 2.3 : 1.8}
+      />
+      <span
+        className={[
+          "text-[10px] leading-none font-medium transition-colors",
+          active ? "text-foreground" : "text-muted-foreground",
+        ].join(" ")}
+      >
+        {item.label}
+      </span>
+    </NavLink>
+  );
+}
+
+function TabBar({ activeId, onOpenStudio }) {
+  const left = NAV_ITEMS.slice(0, 2);
+  const right = NAV_ITEMS.slice(2);
+
   return (
     <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 glass border-t border-border pb-safe">
-      <div className="h-tabbar grid grid-cols-4">
-        {NAV_ITEMS.map((item) => {
-          const active = activeId === item.id;
-          return (
-            <NavLink
-              key={item.id}
-              to={item.to}
-              className="flex flex-col items-center justify-center gap-1 select-none active:opacity-60 transition-opacity"
-            >
-              <item.icon
-                className={[
-                  "w-[22px] h-[22px] transition-colors",
-                  active ? "text-primary" : "text-muted-foreground",
-                ].join(" ")}
-                strokeWidth={active ? 2.3 : 1.8}
-              />
-              <span
-                className={[
-                  "text-[10px] leading-none font-medium transition-colors",
-                  active ? "text-foreground" : "text-muted-foreground",
-                ].join(" ")}
-              >
-                {item.label}
-              </span>
-            </NavLink>
-          );
-        })}
+      <div className="h-tabbar grid grid-cols-5">
+        {left.map((item) => (
+          <Tab key={item.id} item={item} active={activeId === item.id} />
+        ))}
+
+        {/* Raised centre action — Prompt Studio */}
+        <div className="relative flex items-start justify-center">
+          <button
+            type="button"
+            onClick={onOpenStudio}
+            aria-label="Open Prompt Studio"
+            className="-mt-6 grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-foreground ring-4 ring-background shadow-glow transition-transform active:scale-95"
+          >
+            <Wand2 className="h-6 w-6" />
+          </button>
+        </div>
+
+        {right.map((item) => (
+          <Tab key={item.id} item={item} active={activeId === item.id} />
+        ))}
       </div>
     </nav>
   );
@@ -211,6 +232,7 @@ function AccountSheet({ open, onClose }) {
 
 export default function Layout() {
   const location = useLocation();
+  const { setStudioOpen } = usePromptBus();
   const [accountOpen, setAccountOpen] = useState(false);
   const activeId = getActiveNavId(location.pathname);
   const title = getPageTitle(location.pathname);
@@ -223,15 +245,16 @@ export default function Layout() {
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
-      <Sidebar activeId={activeId} />
+      <Sidebar activeId={activeId} onOpenStudio={() => setStudioOpen(true)} />
       <TopBar title={title} onOpenAccount={() => setAccountOpen(true)} />
 
       <main className="lg:pl-[248px] pb-tabsafe lg:pb-0">
         <Outlet />
       </main>
 
-      <TabBar activeId={activeId} />
+      <TabBar activeId={activeId} onOpenStudio={() => setStudioOpen(true)} />
       <AccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} />
+      <PromptStudio />
     </div>
   );
 }
