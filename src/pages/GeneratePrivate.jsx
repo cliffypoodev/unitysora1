@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { getOwnerFields, rememberLocalOwnedVideoId } from "@/lib/videoOwnership";
+import { usePromptBus } from "@/lib/PromptBus";
 import { CheckCircle2, Images, ImageIcon, Loader2, LogIn, Share2, Sparkles, Upload, Video, Wand2, X } from "lucide-react";
 import { shareMedia } from "@/lib/mediaExport";
 import {
@@ -119,6 +120,7 @@ async function runHuggingFaceVideo(payload, onStatus) {
 
 export default function GeneratePrivate() {
   const { user: contextUser, isAuthenticated, loginWithGoogle } = useAuth();
+  const { pending, consumePrompt } = usePromptBus();
   const [resolvedUser, setResolvedUser] = useState(contextUser || null);
   const [checkingUser, setCheckingUser] = useState(!contextUser);
   const [prompt, setPrompt] = useState(() => new URLSearchParams(window.location.search).get("prompt") || "");
@@ -137,6 +139,14 @@ export default function GeneratePrivate() {
   const fileInputRef = useRef(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+
+
+  // Prompt Studio injection. The URL param only fires on mount, so an
+  // already-open page needs this to receive a prompt.
+  useEffect(() => {
+    const incoming = consumePrompt("video");
+    if (incoming) setPrompt(incoming);
+  }, [pending, consumePrompt]);
 
   useEffect(() => {
     let cancelled = false;

@@ -11,6 +11,7 @@ import {
   MAX_IMAGE_SEED,
 } from "@/lib/imageGenerationSettings";
 import { getOwnerFields, rememberLocalOwnedImageId } from "@/lib/videoOwnership";
+import { usePromptBus } from "@/lib/PromptBus";
 import { Check, Copy, Images, ImageIcon, LogIn, Share2, Sparkles } from "lucide-react";
 import { shareMedia } from "@/lib/mediaExport";
 import {
@@ -48,6 +49,7 @@ function getGenerationErrorMessage(error) {
 
 export default function GenerateImagePrivate() {
   const { user: contextUser, isAuthenticated, loginWithGoogle } = useAuth();
+  const { pending, consumePrompt } = usePromptBus();
   const [resolvedUser, setResolvedUser] = useState(contextUser || null);
   const [checkingUser, setCheckingUser] = useState(!contextUser);
   const [prompt, setPrompt] = useState(() => new URLSearchParams(window.location.search).get("prompt") || "");
@@ -64,6 +66,14 @@ export default function GenerateImagePrivate() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const resultRef = useRef(null);
+
+
+  // Prompt Studio injection. The URL param only fires on mount, so an
+  // already-open page needs this to receive a prompt.
+  useEffect(() => {
+    const incoming = consumePrompt("image");
+    if (incoming) setPrompt(incoming);
+  }, [pending, consumePrompt]);
 
   useEffect(() => {
     let cancelled = false;
