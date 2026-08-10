@@ -1,4 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
+import { secrets } from "base44:runtime";
 import { Client, handle_file } from "npm:@gradio/client";
 
 const DEFAULT_SPACE = "OpenKing/wan2-video-generation";
@@ -87,9 +88,9 @@ Deno.serve(async (req) => {
     const steps = clampInteger(input?.num_inference_steps, 20, 60, 28);
     const guidance = Math.min(15, Math.max(1, Number(input?.guidance_scale) || 5));
     const seed = Number.isInteger(Number(input?.seed)) ? Number(input.seed) : -1;
-    const space = Deno.env.get("HF_VIDEO_SPACE") || DEFAULT_SPACE;
-    const apiName = Deno.env.get("HF_VIDEO_API_NAME") || DEFAULT_API_NAME;
-    const token = Deno.env.get("HF_TOKEN") || undefined;
+    const space = DEFAULT_SPACE;
+    const apiName = DEFAULT_API_NAME;
+    const token = secrets.get("HUGGINGFACE_API_KEY") || undefined;
 
     const client = await Client.connect(space, token ? { token } : {});
     const imageInput = referenceImageUrl ? handle_file(referenceImageUrl) : null;

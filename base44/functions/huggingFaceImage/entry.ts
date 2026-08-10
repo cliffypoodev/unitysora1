@@ -1,4 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
+import { secrets } from "base44:runtime";
 import { Client } from "npm:@gradio/client";
 
 const DEFAULT_SPACE = "black-forest-labs/FLUX.1-schnell";
@@ -69,9 +70,9 @@ Deno.serve(async (req) => {
     const steps = clampInteger(input?.steps, 1, 12, 4);
     const hasSeed = Number.isInteger(Number(input?.seed)) && Number(input?.seed) >= 0;
     const seed = hasSeed ? clampInteger(input.seed, 0, 2147483647, 0) : 0;
-    const space = Deno.env.get("HF_IMAGE_SPACE") || DEFAULT_SPACE;
-    const apiName = Deno.env.get("HF_IMAGE_API_NAME") || DEFAULT_API_NAME;
-    const token = Deno.env.get("HF_TOKEN") || undefined;
+    const space = DEFAULT_SPACE;
+    const apiName = DEFAULT_API_NAME;
+    const token = secrets.get("HUGGINGFACE_API_KEY") || undefined;
 
     const client = await Client.connect(space, token ? { token } : {});
     const prediction = await client.predict(apiName, [
