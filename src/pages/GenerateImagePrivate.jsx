@@ -11,7 +11,7 @@ import {
   MAX_IMAGE_SEED,
 } from "@/lib/imageGenerationSettings";
 import { getOwnerFields, rememberLocalOwnedImageId } from "@/lib/videoOwnership";
-import { Check, Copy, Images, ImageIcon, Loader2, LogIn, Share2, Sparkles } from "lucide-react";
+import { Check, Copy, Images, ImageIcon, LogIn, Share2, Sparkles } from "lucide-react";
 import { shareMedia } from "@/lib/mediaExport";
 import {
   CreateTabs,
