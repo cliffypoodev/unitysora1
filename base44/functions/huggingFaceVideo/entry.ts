@@ -7,6 +7,9 @@ const DEFAULT_API_NAME = "/generate_video";
 const MINIMAX_SPACE = "akhaliq/MiniMax-H3-Turbo-Lora";
 const MINIMAX_API_NAME = "/generate";
 const MINIMAX_FILE_BASE = "https://akhaliq-minimax-h3-turbo-lora.hf.space/gradio_api/file=";
+const OPEN_SORA_SPACE = "kadirnar/Open-Sora";
+const OPEN_SORA_API_NAME = "/run_inference";
+const OPEN_SORA_FILE_BASE = "https://kadirnar-open-sora.hf.space/file=";
 const MINIMAX_CANVAS = {
   "16:9": "1024x576 · 16:9 fast",
   "9:16": "544x960 · 9:16 fast",
@@ -57,6 +60,9 @@ function findMediaUrl(value) {
 
 function findMediaPath(value) {
   if (!value) return null;
+  if (typeof value === "string") {
+    return [".mp4", ".webm", ".mov"].some((extension) => value.toLowerCase().endsWith(extension)) ? value : null;
+  }
   if (Array.isArray(value)) {
     for (const item of value) {
       const found = findMediaPath(item);
@@ -103,7 +109,8 @@ export default async function(req) {
     const input = await req.json().catch(() => ({}));
     const prompt = String(input?.prompt || "").trim();
     const referenceImageUrl = String(input?.reference_image_url || "").trim();
-    const model = input?.model === "minimax_h3" ? "minimax_h3" : "wan_2_2";
+    const requestedModel = String(input?.model || "");
+    const model = ["minimax_h3", "open_sora"].includes(requestedModel) ? requestedModel : "wan_2_2";
     if (!prompt) return Response.json({ success: false, error: "Prompt is required." }, { status: 400 });
     if (prompt.length > 4000) return Response.json({ success: false, error: "Prompt must be 4,000 characters or fewer." }, { status: 400 });
 
@@ -114,28 +121,34 @@ export default async function(req) {
     const guidance = Math.min(15, Math.max(1, Number(input?.guidance_scale) || 5));
     const seed = Number.isInteger(Number(input?.seed)) ? Number(input.seed) : -1;
     const isMiniMax = model === "minimax_h3";
-    const space = isMiniMax ? MINIMAX_SPACE : DEFAULT_SPACE;
-    const apiName = isMiniMax ? MINIMAX_API_NAME : DEFAULT_API_NAME;
+    const isOpenSora = model === "open_sora";
+    if (isOpenSora && referenceImageUrl) {
+      return Response.json({ success: false, error: "Open-Sora supports text-to-video only." }, { status: 400 });
+    }
+    const space = isOpenSora ? OPEN_SORA_SPACE : isMiniMax ? MINIMAX_SPACE : DEFAULT_SPACE;
+    const apiName = isOpenSora ? OPEN_SORA_API_NAME : isMiniMax ? MINIMAX_API_NAME : DEFAULT_API_NAME;
     const token = secrets.get("HUGGINGFACE_API_KEY") || undefined;
 
     const client = await Client.connect(space, token ? { token } : {});
     const imageInput = referenceImageUrl ? handle_file(referenceImageUrl) : null;
     const aspectRatio = ["16:9", "9:16", "1:1"].includes(input?.aspect_ratio) ? input.aspect_ratio : "16:9";
     const durationSeconds = clampInteger(input?.duration_seconds, 2, 14, 5);
-    const generationArgs = isMiniMax
-      ? {
-          prompt,
-          image_path: imageInput,
-          last_image_path: null,
-          canvas: MINIMAX_CANVAS[aspectRatio],
-          duration: durationSeconds,
-          steps: 6,
-          seed,
-          upsample: false,
-          use_lora: true,
-          lora: "",
-        }
-      : [prompt, imageInput, width, height, frames, steps, guidance, seed];
+    const generationArgs = isOpenSora
+      ? [prompt]
+      : isMiniMax
+        ? {
+            prompt,
+            image_path: imageInput,
+            last_image_path: null,
+            canvas: MINIMAX_CANVAS[aspectRatio],
+            duration: durationSeconds,
+            steps: 6,
+            seed,
+            upsample: false,
+            use_lora: true,
+            lora: "",
+          }
+        : [prompt, imageInput, width, height, frames, steps, guidance, seed];
 
     const encoder = new TextEncoder();
     let heartbeatId;
@@ -160,6 +173,41 @@ export default async function(req) {
 
         (async () => {
           try {
+            if (isOpenSora) {
+              send({ type: "status", message: "Open-Sora is rendering a fixed 512 × 512 text-to-video clip..." });
+              const prediction = await client.predict(apiName, generationArgs);
+              const mediaPath = findMediaPath(prediction?.data);
+              const sourceUrl =
+                findMediaUrl(prediction?.data) ||
+                (mediaPath ? OPEN_SORA_FILE_BASE + encodeURIComponent(mediaPath) : null);
+              if (!sourceUrl) throw new Error("The Open-Sora Space completed without returning a video.");
+
+              send({ type: "status", message: "Saving the finished video to private app storage..." });
+              const storedUrl = await saveVideo(base44, sourceUrl, token);
+              send({
+                type: "complete",
+                data: {
+                  success: true,
+                  provider: "huggingface-space",
+                  space,
+                  model: "Open-Sora v1 HQ",
+                  video_url: storedUrl,
+                  thumbnail_url: storedUrl,
+                  source_video_url: sourceUrl,
+                  width: 512,
+                  height: 512,
+                  num_frames: 16,
+                  num_inference_steps: 50,
+                  guidance_scale: 7,
+                  seed: 42,
+                  duration_seconds: 3,
+                  mode: "t2v",
+                },
+              });
+              finish();
+              return;
+            }
+
             if (isMiniMax) {
               send({ type: "status", message: "MiniMax-H3 is processing the video and soundtrack..." });
               const prediction = await client.predict(apiName, generationArgs);
