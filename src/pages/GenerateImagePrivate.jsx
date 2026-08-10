@@ -271,9 +271,9 @@ export default function GenerateImagePrivate() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 sm:p-6 border-b border-background/10">
-            <div className="sm:col-span-3">
-              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Image Style</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 sm:p-6 border-b border-background/10">
+            <div className="sm:col-span-2">
+              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Art Style</Label>
               <Select value={selectedStyleId} onValueChange={setSelectedStyleId}>
                 <SelectTrigger className="bg-black/25 border-background/10 text-background"><SelectValue /></SelectTrigger>
                 <SelectContent className="max-h-80">
@@ -284,50 +284,72 @@ export default function GenerateImagePrivate() {
               </Select>
             </div>
 
-            <div className="sm:col-span-3 flex items-center justify-between rounded-lg border border-background/10 bg-black/25 px-3 py-3">
-              <Label htmlFor="nsfw-mode" className="text-sm font-medium text-background">NSFW</Label>
+            <div className="sm:col-span-2 flex items-center justify-between gap-4 rounded-lg border border-background/10 bg-black/25 px-3 py-3">
+              <div>
+                <Label htmlFor="nsfw-mode" className="text-sm font-medium text-background">NSFW model</Label>
+                <p className="mt-0.5 text-xs text-background/50">{settings.model}</p>
+              </div>
               <Switch id="nsfw-mode" checked={nsfw} onCheckedChange={setNsfw} />
             </div>
 
             <div>
-              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Aspect Ratio</Label>
+              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Output Orientation & Aspect</Label>
               <Select value={aspectRatio} onValueChange={setAspectRatio}>
                 <SelectTrigger className="bg-black/25 border-background/10 text-background"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.keys(SIZE_BY_ASPECT_RATIO).map((value) => (
-                    <SelectItem key={value} value={value}>{value}</SelectItem>
+                  {IMAGE_ASPECT_RATIOS.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Resolution</Label>
-              <div className="h-9 rounded-md border border-background/10 bg-black/25 px-3 flex items-center text-sm text-background">
-                {size.resolution}
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Inference Steps</Label>
-              <Select value={steps} onValueChange={setSteps}>
+              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Output Size</Label>
+              <Select value={outputSize} onValueChange={setOutputSize}>
                 <SelectTrigger className="bg-black/25 border-background/10 text-background"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="4">4 · Fast</SelectItem>
-                  <SelectItem value="6">6 · Detailed</SelectItem>
-                  <SelectItem value="8">8 · Maximum</SelectItem>
+                  {IMAGE_OUTPUT_SIZES.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="sm:col-span-3">
+            <div>
+              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Exact Resolution</Label>
+              <div className="h-9 rounded-md border border-background/10 bg-black/25 px-3 flex items-center text-sm text-background">
+                {settings.resolution}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-medium text-background/60 mb-1.5 block">Generation Quality</Label>
+              <Select value={quality} onValueChange={setQuality}>
+                <SelectTrigger className="bg-black/25 border-background/10 text-background"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {IMAGE_QUALITY_PRESETS.map((item) => {
+                    const preset = getImageGenerationSettings({ aspectRatio, outputSize, quality: item.id, nsfw });
+                    return <SelectItem key={item.id} value={item.id}>{item.label} · {preset.steps} steps</SelectItem>;
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="sm:col-span-2">
               <Label className="text-xs font-medium text-background/60 mb-1.5 block">Optional Seed</Label>
               <Input
                 value={seed}
-                onChange={(event) => setSeed(event.target.value.replace(/[^0-9]/g, ""))}
-                placeholder="Leave blank for random"
+                inputMode="numeric"
+                maxLength={10}
+                onChange={(event) => setSeed(event.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
+                placeholder="Leave blank for a random seed"
+                aria-invalid={!seedIsValid}
                 className="bg-black/25 border-background/10 text-background placeholder:text-background/40"
               />
+              <p className={`mt-1 text-xs ${seedIsValid ? "text-background/45" : "text-red-300"}`}>
+                {seedIsValid ? `0–${MAX_IMAGE_SEED}; blank generates a new random result.` : `Seed must be between 0 and ${MAX_IMAGE_SEED}.`}
+              </p>
             </div>
           </div>
 
