@@ -180,6 +180,18 @@ Deno.serve(async (req) => {
         last.parts[0].text;
     }
 
+    if (openRouterApiKey) {
+      const primary = await callOpenRouter(openRouterApiKey, contents);
+      if (primary.ok && primary.text) {
+        return jsonResponse({
+          success: true,
+          text: primary.text,
+          model: OPENROUTER_MODEL,
+          provider: "openrouter",
+        });
+      }
+    }
+
     const models = FALLBACK_MODELS;
 
     let lastError = "Gemini did not return a response.";
