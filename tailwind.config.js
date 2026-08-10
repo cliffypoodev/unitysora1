@@ -67,8 +67,9 @@ module.exports = {
         md: 'calc(var(--radius) - 4px)',
         sm: 'calc(var(--radius) - 6px)',
       },
-      spacing: {
-        safe: 'env(safe-area-inset-bottom)',
+      /* Heights only. Safe-area padding lives in index.css so it can use
+         the correct inset per side without colliding with these names. */
+      height: {
         topbar: 'var(--topbar-h)',
         tabbar: 'var(--tabbar-h)',
       },
