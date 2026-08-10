@@ -15,12 +15,7 @@ import {
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import {
-  belongsToCurrentUser,
-  getOwnerFields,
-  readLocalOwnedImageIds,
-  readLocalOwnedVideoIds,
-} from "@/lib/videoOwnership";
+import { getMediaEntity, loadOwnedMedia, resolveUser } from "@/lib/ownedMedia";
 import MediaGrid, { MediaGridSkeleton } from "@/components/gallery/MediaGrid";
 import Lightbox from "@/components/gallery/Lightbox";
 
@@ -134,20 +129,10 @@ export default function Gallery() {
   useEffect(() => {
     let cancelled = false;
 
-    async function resolveUser() {
-      if (contextUser?.id || contextUser?.email) {
-        setResolvedUser(contextUser);
-        return;
-      }
-      try {
-        const currentUser = await base44.auth.me();
-        if (!cancelled) setResolvedUser(currentUser || null);
-      } catch {
-        if (!cancelled) setResolvedUser(null);
-      }
-    }
+    resolveUser(contextUser).then((user) => {
+      if (!cancelled) setResolvedUser(user);
+    });
 
-    resolveUser();
     return () => {
       cancelled = true;
     };
@@ -156,29 +141,7 @@ export default function Gallery() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { owner_user_id: ownerId, owner_email: ownerEmail } = getOwnerFields(resolvedUser);
-      if (!ownerId && !ownerEmail) {
-        setItems([]);
-        return;
-      }
-
-      const entity = kind === "video" ? base44.entities.GeneratedVideo : base44.entities.GeneratedImage;
-      const localOwnedIds =
-        kind === "video"
-          ? readLocalOwnedVideoIds(ownerId, ownerEmail)
-          : readLocalOwnedImageIds(ownerId, ownerEmail);
-
-      const results = await Promise.all([
-        ownerId ? entity.filter({ status: "completed", owner_user_id: ownerId }, sortBy, 300) : Promise.resolve([]),
-        ownerEmail ? entity.filter({ status: "completed", owner_email: ownerEmail }, sortBy, 300) : Promise.resolve([]),
-        ownerEmail ? entity.filter({ status: "completed", created_by: ownerEmail }, sortBy, 300) : Promise.resolve([]),
-      ]);
-
-      const deduped = Array.from(new Map(results.flat().map((item) => [item.id, item])).values());
-      const owned = deduped.filter(
-        (item) => hasAsset(item, kind) && belongsToCurrentUser(item, ownerId, ownerEmail, localOwnedIds)
-      );
-      setItems(owned);
+      setItems(await loadOwnedMedia({ kind, user: resolvedUser, sortBy }));
     } catch (error) {
       console.error("[UnitySora] Gallery load failed", error);
       setItems([]);
@@ -233,7 +196,7 @@ export default function Gallery() {
   };
 
   const handleLike = async (item) => {
-    const entity = kind === "video" ? base44.entities.GeneratedVideo : base44.entities.GeneratedImage;
+    const entity = getMediaEntity(kind);
     const likes = (item.likes || 0) + 1;
     setItems((previous) => previous.map((entry) => (entry.id === item.id ? { ...entry, likes } : entry)));
     try {
@@ -245,7 +208,7 @@ export default function Gallery() {
 
   const deleteIds = async (ids) => {
     if (!ids.length) return;
-    const entity = kind === "video" ? base44.entities.GeneratedVideo : base44.entities.GeneratedImage;
+    const entity = getMediaEntity(kind);
     const label = kind === "video" ? "video" : "image";
     const confirmed = window.confirm(
       `Delete ${ids.length} ${label}${ids.length === 1 ? "" : "s"}? This cannot be undone.`
