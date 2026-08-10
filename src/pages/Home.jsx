@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, ImageIcon, Sparkles, Video } from "lucide-react";
-import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { loadOwnedMedia, resolveUser } from "@/lib/ownedMedia";
 import GalleryVideoThumbnail from "@/components/gallery/GalleryVideoThumbnail";

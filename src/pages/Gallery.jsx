@@ -13,7 +13,6 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { getMediaEntity, loadOwnedMedia, resolveUser } from "@/lib/ownedMedia";
 import MediaGrid, { MediaGridSkeleton } from "@/components/gallery/MediaGrid";
