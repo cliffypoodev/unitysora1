@@ -5,6 +5,7 @@ import { queryClientInstance } from "@/lib/query-client";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import PageNotFound from "./lib/PageNotFound";
 import { AuthProvider, useAuth } from "@/lib/AuthContext";
+import { PromptBusProvider } from "@/lib/PromptBus";
 import UserNotRegisteredError from "@/components/UserNotRegisteredError";
 import Home from "./pages/Home";
 import Docs from "./pages/Docs";
@@ -68,7 +69,9 @@ export default function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <Router>
-          <AuthenticatedApp />
+          <PromptBusProvider>
+            <AuthenticatedApp />
+          </PromptBusProvider>
         </Router>
         <Toaster />
       </QueryClientProvider>
