@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/lib/AuthContext";
 import { PromptBusProvider } from "@/lib/PromptBus";
 import UserNotRegisteredError from "@/components/UserNotRegisteredError";
 import Home from "./pages/Home";
+import SignIn from "./pages/SignIn";
 import Docs from "./pages/Docs";
 import Generate from "./pages/GeneratePrivate";
 import GenerateImage from "./pages/GenerateImagePrivate";
@@ -29,7 +30,7 @@ const GoogleAuthRedirect = ({ navigateToLogin }) => {
 };
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) return <LoadingScreen />;
 
@@ -48,6 +49,11 @@ const AuthenticatedApp = () => {
       </div>
     );
   }
+
+  // Nothing in the app renders without a signed-in Google account. The
+  // entity row level security is the real boundary; this keeps the UI from
+  // ever mounting in a signed-out state and firing unscoped reads.
+  if (!isAuthenticated) return <SignIn />;
 
   return (
     <Routes>
