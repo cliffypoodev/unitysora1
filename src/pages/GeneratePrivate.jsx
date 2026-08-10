@@ -3,12 +3,20 @@ import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { getOwnerFields, rememberLocalOwnedVideoId } from "@/lib/videoOwnership";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, CheckCircle2, ImageIcon, Loader2, LogIn, Sparkles, Upload, Video, Wand2, X } from "lucide-react";
+import { CheckCircle2, Images, ImageIcon, Loader2, LogIn, Share2, Sparkles, Upload, Video, Wand2, X } from "lucide-react";
+import { shareMedia } from "@/lib/mediaExport";
+import {
+  CreateTabs,
+  Disclosure,
+  Field,
+  GenerateButton,
+  NativeSelect,
+  Notice,
+  Panel,
+  RatioPicker,
+  ReadOnlyField,
+  StickyAction,
+} from "@/components/create/ui";
 
 const VIDEO_SIZES = {
   "16:9": { value: "1024x576", label: "1024 × 576", width: 1024, height: 576 },
@@ -127,6 +135,8 @@ export default function GeneratePrivate() {
   const [generatedItem, setGeneratedItem] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const fileInputRef = useRef(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -339,89 +349,86 @@ export default function GeneratePrivate() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-[1200px] mx-auto px-4 py-8">
-        <div className="mb-8 text-center">
-          <Badge variant="outline" className="mb-3">Hugging Face Spaces · Video Models</Badge>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Generate Video</h1>
-          <p className="text-muted-foreground">
-            Create text-to-video or image-to-video clips on a shared Hugging Face GPU.
-          </p>
+    <div className="min-h-dvh">
+      <div className="mx-auto max-w-[1500px] px-4 lg:px-8 py-4 lg:py-6">
+        <div className="flex items-center gap-3 mb-5">
+          <CreateTabs active="video" />
+          <span className="ml-auto hidden sm:block text-xs text-muted-foreground truncate max-w-[220px]">
+            {selectedModel.label}
+          </span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-5">
-            <div className="flex rounded-lg border border-border overflow-hidden bg-muted/30">
+        <div className="grid gap-5 lg:grid-cols-[400px_minmax(0,1fr)] lg:items-start">
+          {/* ---------------- Controls ---------------- */}
+          <div className="space-y-4">
+            <div className="inline-flex w-full p-0.5 rounded-lg bg-muted">
               <button
                 type="button"
                 onClick={() => setMode("t2v")}
-                className={[
-                  "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors",
-                  mode === "t2v" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                ].join(" ")}
+                className={
+                  "flex-1 h-9 rounded-[7px] text-[13px] font-medium transition-colors flex items-center justify-center gap-1.5 " +
+                  (mode === "t2v" ? "bg-surface-2 text-foreground shadow-sm" : "text-muted-foreground")
+                }
               >
-                <Wand2 className="w-4 h-4" />
-                Text-to-Video
+                <Wand2 className="w-3.5 h-3.5" /> Text
               </button>
               <button
                 type="button"
-                onClick={() => !isOpenSora && setMode("i2v")}
                 disabled={isOpenSora}
-                className={[
-                  "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors",
-                  mode === "i2v" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                  isOpenSora ? "cursor-not-allowed opacity-50" : "",
-                ].join(" ")}
+                onClick={() => !isOpenSora && setMode("i2v")}
+                className={
+                  "flex-1 h-9 rounded-[7px] text-[13px] font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-40 " +
+                  (mode === "i2v" ? "bg-surface-2 text-foreground shadow-sm" : "text-muted-foreground")
+                }
               >
-                <ImageIcon className="w-4 h-4" />
-                Image-to-Video
+                <ImageIcon className="w-3.5 h-3.5" /> Image
               </button>
             </div>
 
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Prompt</Label>
-              <Textarea
+            <Panel className="p-3.5">
+              <textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
                 maxLength={3500}
-                placeholder="Describe the motion, camera movement, subject, lighting, and scene..."
-                className="min-h-[140px] text-sm resize-none"
+                rows={5}
+                placeholder="Describe the motion, camera move, subject, lighting and scene."
+                className="w-full resize-none bg-transparent text-[15px] leading-relaxed placeholder:text-muted-foreground focus:outline-none"
               />
-              <p className="mt-1.5 text-xs text-muted-foreground">{prompt.length} characters</p>
-            </div>
+              <div className="mt-2 border-t border-border pt-2.5">
+                <span className="text-[11px] text-muted-foreground tabular">{prompt.length} / 3500</span>
+              </div>
+            </Panel>
 
             {mode === "i2v" && (
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Reference Image</Label>
+              <Field label="Reference image">
                 {referenceImage ? (
-                  <div className="relative rounded-lg overflow-hidden border border-border">
-                    <img src={referenceImage} alt="Reference" className="w-full h-52 object-cover" />
-                    <div className="absolute top-2 left-2 flex items-center gap-1 bg-green-600 text-white rounded-full px-2 py-1 text-xs shadow">
-                      <CheckCircle2 className="w-3 h-3" />
-                      Attached
-                    </div>
+                  <div className="relative overflow-hidden rounded-lg border border-border">
+                    <img src={referenceImage} alt="Reference" className="h-44 w-full object-cover no-drag" />
+                    <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-success px-2 py-1 text-[11px] font-medium text-white">
+                      <CheckCircle2 className="h-3 w-3" /> Attached
+                    </span>
                     <button
                       type="button"
                       onClick={clearReferenceImage}
-                      className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition-colors"
                       aria-label="Remove reference image"
+                      className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-black/60 text-white"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 ) : (
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors"
+                    className="w-full rounded-lg border border-dashed border-border py-10 text-center transition-colors hover:border-primary/50 hover:bg-accent"
                   >
                     {uploadingImage ? (
-                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+                      <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
                     ) : (
                       <>
-                        <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">Click to upload a reference image</p>
-                        <p className="text-xs text-muted-foreground mt-1">PNG, JPG, or WebP up to 20 MB</p>
+                        <Upload className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Upload a starting frame</p>
+                        <p className="mt-1 text-xs text-muted-foreground/70">PNG, JPG or WebP up to 20 MB</p>
                       </>
                     )}
                   </button>
@@ -433,184 +440,173 @@ export default function GeneratePrivate() {
                   className="hidden"
                   onChange={(event) => handleImageUpload(event.target.files?.[0])}
                 />
-              </div>
+              </Field>
             )}
 
-            <div>
-              <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Model</Label>
-              <Select value={videoModel} onValueChange={handleVideoModelChange}>
-                <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="wan_2_2">Wan 2.2 TI2V 5B</SelectItem>
-                  <SelectItem value="minimax_h3">MiniMax-H3 Turbo LoRA</SelectItem>
-                  <SelectItem value="open_sora">Open-Sora v1 HQ</SelectItem>
-                </SelectContent>
-              </Select>
-              {isOpenSora && (
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  Text-to-video only · fixed 512 × 512 output · about 3 seconds · fixed seed 42.
-                </p>
-              )}
-            </div>
+            <Field
+              label="Model"
+              hint={isOpenSora ? "Text to video only, fixed 512 x 512, about 3 seconds, fixed seed." : undefined}
+            >
+              <NativeSelect
+                value={videoModel}
+                onChange={handleVideoModelChange}
+                options={Object.entries(VIDEO_MODELS).map(([id, model]) => ({ id, label: model.label }))}
+              />
+            </Field>
 
-            <div>
-              <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Quality Mode</Label>
-              {videoModel === "wan_2_2" ? (
-                <Select value={qualityMode} onValueChange={setQualityMode}>
-                  <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.keys(QUALITY_PRESETS).map((value) => (
-                      <SelectItem key={value} value={value}>{value}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className="h-9 rounded-md border border-input bg-muted/30 px-3 flex items-center text-sm">
-                  {isOpenSora ? "Fixed · 50 steps" : "Fixed · 6 steps"}
-                </div>
-              )}
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                {isOpenSora
-                  ? OPEN_SORA_SETTINGS.quality.description
-                  : videoModel === "minimax_h3"
-                    ? "Turbo LoRA generation uses its optimized 6-step pipeline."
-                    : selectedQuality.description}
-              </p>
-            </div>
+            <Field label="Aspect ratio">
+              <RatioPicker
+                value={effectiveAspectRatio}
+                options={Object.keys(VIDEO_SIZES).map((id) => ({ id }))}
+                onChange={setAspectRatio}
+                disabled={isOpenSora}
+              />
+            </Field>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Aspect Ratio</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Duration">
                 {isOpenSora ? (
-                  <div className="h-9 rounded-md border border-input bg-muted/30 px-3 flex items-center text-sm">1:1</div>
+                  <ReadOnlyField>{selectedDuration.label}</ReadOnlyField>
                 ) : (
-                  <Select value={effectiveAspectRatio} onValueChange={setAspectRatio}>
-                    <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(VIDEO_SIZES).map((value) => (
-                        <SelectItem key={value} value={value}>{value}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <NativeSelect
+                    value={effectiveDuration}
+                    onChange={setDuration}
+                    options={Object.entries(DURATION_OPTIONS).map(([id, option]) => ({ id, label: option.label }))}
+                  />
                 )}
-              </div>
+              </Field>
 
-              <div>
-                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Output Size</Label>
-                <div className="h-9 rounded-md border border-input bg-muted/30 px-3 flex items-center text-sm">
-                  {selectedSize.label}
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Duration</Label>
-                {isOpenSora ? (
-                  <div className="h-9 rounded-md border border-input bg-muted/30 px-3 flex items-center text-sm">
-                    {selectedDuration.label}
-                  </div>
+              <Field label="Quality">
+                {videoModel === "wan_2_2" ? (
+                  <NativeSelect
+                    value={qualityMode}
+                    onChange={setQualityMode}
+                    options={Object.keys(QUALITY_PRESETS).map((id) => ({ id, label: id }))}
+                  />
                 ) : (
-                  <Select value={effectiveDuration} onValueChange={setDuration}>
-                    <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(DURATION_OPTIONS).map(([value, option]) => (
-                        <SelectItem key={value} value={value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ReadOnlyField>{isOpenSora ? "Fixed, 50 steps" : "Fixed, 6 steps"}</ReadOnlyField>
                 )}
-              </div>
+              </Field>
             </div>
 
-            {errorMessage && (
-              <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700">
-                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-            {checkingUser && (
-              <div className="flex items-start gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-sm text-blue-700">
-                <Loader2 className="w-4 h-4 mt-0.5 flex-shrink-0 animate-spin" />
-                <span>Checking your Google account...</span>
-              </div>
-            )}
+            <Disclosure label="Advanced" open={advancedOpen} onToggle={() => setAdvancedOpen((value) => !value)}>
+              <Field label="Output size">
+                <ReadOnlyField>{selectedSize.label}</ReadOnlyField>
+              </Field>
+              <Field label="Frames">
+                <ReadOnlyField>{selectedDuration.frames}</ReadOnlyField>
+              </Field>
+              <Field label="Sampling steps">
+                <ReadOnlyField>{selectedQuality.steps}</ReadOnlyField>
+              </Field>
+            </Disclosure>
+
+            {errorMessage && <Notice tone="error">{errorMessage}</Notice>}
+            {checkingUser && <Notice tone="loading">Checking your Google account</Notice>}
             {!checkingUser && !isSignedIn && (
-              <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-700">
-                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>Google sign-in is required so videos stay private to your account.</span>
-              </div>
+              <Notice tone="warning">Sign in with Google so videos stay private to your account.</Notice>
             )}
 
-            {!checkingUser && !isSignedIn ? (
-              <Button onClick={loginWithGoogle} className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 gap-2">
-                <LogIn className="w-5 h-5" />
-                Continue with Google
-              </Button>
-            ) : (
-              <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 gap-2">
-                {isGenerating ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> Generating with {selectedModel.shortLabel}...</>
-                ) : (
-                  <><Sparkles className="w-5 h-5" /> Generate Video</>
-                )}
-              </Button>
-            )}
+            <StickyAction>
+              {!checkingUser && !isSignedIn ? (
+                <GenerateButton onClick={loginWithGoogle} label="Continue with Google" icon={LogIn} />
+              ) : (
+                <GenerateButton
+                  onClick={handleGenerate}
+                  disabled={!canGenerate}
+                  busy={isGenerating}
+                  busyLabel={"Generating with " + selectedModel.shortLabel}
+                  label="Generate video"
+                  icon={Sparkles}
+                />
+              )}
+            </StickyAction>
           </div>
 
-          <div className="border border-border rounded-xl overflow-hidden bg-card min-h-[500px] flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/40">
-              <span className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Video className="w-4 h-4 text-accent" />
-                Output
-              </span>
-              <div className="flex items-center gap-2">
-                {generatedItem?._engineLabel && <Badge className="bg-purple-500/10 text-purple-700 border-purple-500/20 text-xs">{generatedItem._engineLabel}</Badge>}
-                {generatedItem?.video_url && <Badge className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">Completed</Badge>}
-                {isGenerating && <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 text-xs animate-pulse">Generating...</Badge>}
+          {/* ---------------- Canvas ---------------- */}
+          <div className="lg:sticky lg:top-6">
+            <Panel className="overflow-hidden">
+              <div className="flex items-center gap-2 border-b border-border px-4 h-11">
+                <Video className="w-4 h-4 text-muted-foreground" />
+                <span className="text-[13px] font-medium">Output</span>
+                {isGenerating && (
+                  <span className="ml-auto flex items-center gap-1.5 text-[11px] text-primary animate-breathe">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    Working
+                  </span>
+                )}
+                {!isGenerating && generatedItem?.video_url && (
+                  <span className="ml-auto text-[11px] text-success">Complete</span>
+                )}
               </div>
-            </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center p-6">
-              {isGenerating && (
-                <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 mx-auto">
-                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              <div className="p-3">
+                {isGenerating ? (
+                  <div className="space-y-3">
+                    <div
+                      className="skeleton w-full rounded-lg"
+                      style={{ aspectRatio: selectedSize.width / selectedSize.height }}
+                    />
+                    <p className="text-center text-xs text-muted-foreground">
+                      {generationStatus || "Shared GPUs can take several minutes or queue when busy."}
+                    </p>
                   </div>
-                  <p className="text-foreground font-medium mb-1">Generating your video...</p>
-                  <p className="text-sm text-muted-foreground">{generationStatus || "Free shared GPUs can take several minutes or queue during busy periods."}</p>
-                </div>
-              )}
-              {!isGenerating && !generatedItem && (
-                <div className="text-center text-muted-foreground">
-                  <Video className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">Your generated video will appear here</p>
-                  <p className="text-xs mt-1 opacity-70">Completed videos are copied into permanent app storage.</p>
-                </div>
-              )}
-              {generatedItem?.video_url && !isGenerating && (
-                <div className="w-full">
-                  <div className="rounded-lg overflow-hidden border border-border mb-4 bg-black">
+                ) : generatedItem?.video_url ? (
+                  <>
                     <video
                       src={generatedItem.video_url}
+                      poster={generatedItem.thumbnail_url || generatedItem.reference_image_url}
                       controls
                       autoPlay
                       loop
                       playsInline
-                      className="w-full object-contain max-h-96"
-                      poster={generatedItem.thumbnail_url || generatedItem.reference_image_url}
+                      className="w-full rounded-lg bg-black object-contain max-h-[62dvh]"
                     />
+                    <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground tabular">
+                      <span className="rounded-md bg-muted px-2 py-1">{generatedItem.resolution}</span>
+                      <span className="rounded-md bg-muted px-2 py-1">{generatedItem.aspect_ratio}</span>
+                      <span className="rounded-md bg-muted px-2 py-1">{generatedItem.duration}</span>
+                      <span className="rounded-md bg-muted px-2 py-1">
+                        {generatedItem.mode === "i2v" ? "image to video" : "text to video"}
+                      </span>
+                    </div>
+                    {saveMessage && <p className="mt-2 text-xs text-muted-foreground">{saveMessage}</p>}
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={async () =>
+                          setSaveMessage(
+                            await shareMedia({
+                              url: generatedItem.video_url,
+                              kind: "video",
+                              id: generatedItem.id,
+                              prompt: generatedItem.prompt,
+                            })
+                          )
+                        }
+                        className="flex-1 h-11 rounded-lg bg-secondary text-sm font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                      >
+                        <Share2 className="w-4 h-4" /> Save
+                      </button>
+                      <Link
+                        to="/gallery"
+                        className="flex-1 h-11 rounded-lg border border-border text-sm font-medium flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                      >
+                        <Images className="w-4 h-4" /> Gallery
+                      </Link>
+                    </div>
+                  </>
+                ) : (
+                  <div className="grid place-items-center rounded-lg border border-dashed border-border py-20 text-center">
+                    <Video className="w-8 h-8 text-muted-foreground/40" />
+                    <p className="mt-3 text-sm text-muted-foreground">Your clip appears here</p>
+                    <p className="mt-1 text-xs text-muted-foreground/70">
+                      Finished videos are copied into permanent app storage
+                    </p>
                   </div>
-                  <div className="bg-muted/30 rounded-lg p-3 border border-border">
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Prompt</p>
-                    <p className="text-sm text-foreground leading-relaxed">{generatedItem.prompt}</p>
-                  </div>
-                  <div className="mt-4 flex gap-2">
-                    <Link to="/gallery" className="flex-1">
-                      <Button variant="outline" className="w-full text-sm">View in Gallery</Button>
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            </Panel>
           </div>
         </div>
       </div>
