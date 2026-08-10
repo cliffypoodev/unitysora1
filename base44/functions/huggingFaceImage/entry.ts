@@ -36,16 +36,16 @@ function findMediaUrl(value: unknown): string | null {
 }
 
 async function saveImage(base44: ReturnType<typeof createClientFromRequest>, sourceUrl: string, token?: string) {
-  const headers = token ? { Authorization: \`Bearer \${token}\` } : undefined;
+  const headers = token ? { Authorization: "Bearer " + token } : undefined;
   const response = await fetch(sourceUrl, { headers });
-  if (!response.ok) throw new Error(\`Hugging Face returned an image URL that could not be downloaded (\${response.status}).\`);
+  if (!response.ok) throw new Error("Hugging Face returned an image URL that could not be downloaded (" + response.status + ").");
 
   const blob = await response.blob();
   if (!blob.size) throw new Error("Hugging Face returned an empty image.");
   if (blob.size > MAX_IMAGE_BYTES) throw new Error("The generated image exceeded the 25 MB storage limit.");
 
   const extension = blob.type.includes("jpeg") ? "jpg" : blob.type.includes("webp") ? "webp" : "png";
-  const file = new File([blob], \`hugging-face-image-\${Date.now()}.\${extension}\`, {
+  const file = new File([blob], "hugging-face-image-" + Date.now() + "." + extension, {
     type: blob.type || "image/png",
   });
   const uploaded = await base44.asServiceRole.integrations.Core.UploadFile({ file });
