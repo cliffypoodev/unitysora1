@@ -3,6 +3,13 @@ import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { getImageGenerationStyle, IMAGE_GENERATION_STYLES } from "@/lib/imageGenerationStyles";
+import {
+  getImageGenerationSettings,
+  IMAGE_ASPECT_RATIOS,
+  IMAGE_OUTPUT_SIZES,
+  IMAGE_QUALITY_PRESETS,
+  MAX_IMAGE_SEED,
+} from "@/lib/imageGenerationSettings";
 import { getOwnerFields, rememberLocalOwnedImageId } from "@/lib/videoOwnership";
 import { AlertTriangle, Check, Copy, ImageIcon, Loader2, LogIn, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -12,14 +19,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-
-const SIZE_BY_ASPECT_RATIO = {
-  "1:1": { width: 1024, height: 1024, resolution: "1024x1024" },
-  "16:9": { width: 1280, height: 720, resolution: "1280x720" },
-  "9:16": { width: 720, height: 1280, resolution: "720x1280" },
-  "4:3": { width: 1024, height: 768, resolution: "1024x768" },
-  "3:4": { width: 768, height: 1024, resolution: "768x1024" },
-};
 
 async function copyToClipboard(text) {
   if (!text) return false;
@@ -49,7 +48,8 @@ export default function GenerateImagePrivate() {
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [selectedStyleId, setSelectedStyleId] = useState("none");
   const [nsfw, setNsfw] = useState(false);
-  const [steps, setSteps] = useState("4");
+  const [outputSize, setOutputSize] = useState("standard");
+  const [quality, setQuality] = useState("balanced");
   const [seed, setSeed] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedItem, setGeneratedItem] = useState(null);
@@ -86,12 +86,15 @@ export default function GenerateImagePrivate() {
 
   const ownerFields = getOwnerFields(resolvedUser);
   const isSignedIn = Boolean(isAuthenticated || resolvedUser?.id || resolvedUser?.email);
-  const size = SIZE_BY_ASPECT_RATIO[aspectRatio] || SIZE_BY_ASPECT_RATIO["1:1"];
+  const settings = getImageGenerationSettings({ aspectRatio, outputSize, quality, nsfw });
   const selectedStyle = getImageGenerationStyle(selectedStyleId);
-  const selectedSteps = Number(steps) || 4;
   const seedValue = seed.trim() ? Number(seed) : undefined;
+  const seedIsValid =
+    seedValue === undefined ||
+    (Number.isInteger(seedValue) && seedValue >= 0 && seedValue <= MAX_IMAGE_SEED);
   const canGenerate =
     Boolean(prompt.trim()) &&
+    seedIsValid &&
     isSignedIn &&
     Boolean(ownerFields.owner_user_id) &&
     !checkingUser &&
@@ -132,11 +135,15 @@ export default function GenerateImagePrivate() {
 
       const payload = {
         prompt: styledPrompt,
-        width: size.width,
-        height: size.height,
-        steps: selectedSteps,
-        seed: Number.isFinite(seedValue) ? seedValue : undefined,
+        negative_prompt: selectedStyle.negative || "",
+        width: settings.width,
+        height: settings.height,
+        steps: settings.steps,
+        seed: seedIsValid ? seedValue : undefined,
         nsfw,
+        aspect_ratio: settings.aspectRatio,
+        output_size: settings.outputSize,
+        quality: settings.quality,
       };
 
       const imageOwnerFields = {
@@ -150,12 +157,23 @@ export default function GenerateImagePrivate() {
       newRecord = await base44.entities.GeneratedImage.create({
         ...imageOwnerFields,
         prompt: finalPrompt,
-        resolution: size.resolution,
-        aspect_ratio: aspectRatio,
-        width: size.width,
-        height: size.height,
-        steps: selectedSteps,
-        seed: Number.isFinite(seedValue) ? seedValue : undefined,
+        styled_prompt: styledPrompt,
+        negative_prompt: selectedStyle.negative || "",
+        style_id: selectedStyle.id,
+        style_label: selectedStyle.label,
+        resolution: settings.resolution,
+        aspect_ratio: settings.aspectRatio,
+        orientation: settings.orientation,
+        output_size: settings.outputSize,
+        quality: settings.quality,
+        width: settings.width,
+        height: settings.height,
+        steps: settings.steps,
+        seed: seedIsValid ? seedValue : undefined,
+        nsfw,
+        provider: "huggingface-space",
+        space: settings.space,
+        model: settings.model,
         status: "generating",
         image_url: "",
         source_image_url: "",
@@ -163,8 +181,8 @@ export default function GenerateImagePrivate() {
         generation_payload_debug: JSON.stringify({
           route: "huggingFaceImage",
           provider: "huggingface-space",
-          space: nsfw ? "IbarakiDouji/WAI-NSFW-illustrious-SDXL" : "black-forest-labs/FLUX.1-schnell",
-          model: nsfw ? "WAI NSFW illustrious SDXL v17" : "FLUX.1 Schnell",
+          space: settings.space,
+          model: settings.model,
           selected_style: selectedStyle.label,
           payload,
         }),
@@ -181,11 +199,21 @@ export default function GenerateImagePrivate() {
         throw new Error(imageResult?.error || "The Hugging Face Space did not return an image.");
       }
 
+      const actualWidth = Number(imageResult.width) || settings.width;
+      const actualHeight = Number(imageResult.height) || settings.height;
       const completedRecord = {
         status: "completed",
         image_url: imageResult.image_url,
         thumbnail_url: imageResult.thumbnail_url || imageResult.image_url,
         source_image_url: imageResult.source_image_url || imageResult.image_url,
+        width: actualWidth,
+        height: actualHeight,
+        resolution: `${actualWidth}x${actualHeight}`,
+        steps: Number(imageResult.steps) || settings.steps,
+        seed: Number.isInteger(Number(imageResult.seed)) ? Number(imageResult.seed) : undefined,
+        provider: imageResult.provider || "huggingface-space",
+        space: imageResult.space || settings.space,
+        model: imageResult.model || settings.model,
         error_message: "",
       };
 
@@ -230,6 +258,7 @@ export default function GenerateImagePrivate() {
             <Textarea
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
+              maxLength={3500}
               placeholder="Create a cinematic image of..."
               className="min-h-[190px] resize-none border-background/10 bg-black/25 text-background placeholder:text-background/40 focus-visible:ring-background/30"
             />
