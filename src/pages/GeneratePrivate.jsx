@@ -91,6 +91,7 @@ export default function GeneratePrivate() {
   const [checkingUser, setCheckingUser] = useState(!contextUser);
   const [prompt, setPrompt] = useState(() => new URLSearchParams(window.location.search).get("prompt") || "");
   const [mode, setMode] = useState("t2v");
+  const [videoModel, setVideoModel] = useState("wan_2_2");
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [duration, setDuration] = useState("4s");
   const [qualityMode, setQualityMode] = useState("Balanced");
@@ -218,6 +219,9 @@ export default function GeneratePrivate() {
         num_inference_steps: selectedQuality.steps,
         guidance_scale: selectedQuality.guidance,
         seed,
+        model: videoModel,
+        aspect_ratio: aspectRatio,
+        duration_seconds: Number(duration.replace("s", "")),
       };
 
       newRecord = await base44.entities.GeneratedVideo.create({
@@ -233,8 +237,8 @@ export default function GeneratePrivate() {
         generation_payload_debug: JSON.stringify({
           route: "huggingFaceVideo",
           provider: "huggingface-space",
-          space: "OpenKing/wan2-video-generation",
-          model: "Wan 2.2 TI2V 5B",
+          space: videoModel === "minimax_h3" ? "akhaliq/MiniMax-H3-Turbo-Lora" : "OpenKing/wan2-video-generation",
+          model: videoModel === "minimax_h3" ? "MiniMax-H3 Turbo LoRA" : "Wan 2.2 TI2V 5B",
           quality_mode: qualityMode,
           payload,
         }),
@@ -260,7 +264,7 @@ export default function GeneratePrivate() {
       setGeneratedItem({
         ...newRecord,
         ...completedRecord,
-        _engineLabel: "Wan 2.2 · Hugging Face",
+        _engineLabel: videoResult.model + " · Hugging Face",
       });
     } catch (error) {
       const message = getGenerationErrorMessage(error);
@@ -284,10 +288,10 @@ export default function GeneratePrivate() {
     <div className="min-h-screen bg-background">
       <div className="max-w-[1200px] mx-auto px-4 py-8">
         <div className="mb-8 text-center">
-          <Badge variant="outline" className="mb-3">Hugging Face Spaces · Wan 2.2 TI2V 5B</Badge>
+          <Badge variant="outline" className="mb-3">Hugging Face Spaces · Video Models</Badge>
           <h1 className="text-3xl font-bold text-foreground mb-2">Generate Video</h1>
           <p className="text-muted-foreground">
-            Create text-to-video or image-to-video clips on a free shared Hugging Face GPU.
+            Create text-to-video or image-to-video clips on a shared Hugging Face GPU.
           </p>
         </div>
 
@@ -377,15 +381,18 @@ export default function GeneratePrivate() {
 
             <div>
               <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Model</Label>
-              <div className="h-9 rounded-md border border-input bg-muted/30 px-3 flex items-center justify-between text-sm">
-                <span>Wan 2.2 TI2V 5B</span>
-                <span className="text-xs text-muted-foreground">Hugging Face Space</span>
-              </div>
+              <Select value={videoModel} onValueChange={setVideoModel}>
+                <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="wan_2_2">Wan 2.2 TI2V 5B</SelectItem>
+                  <SelectItem value="minimax_h3">MiniMax-H3 Turbo LoRA</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
               <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Quality Mode</Label>
-              <Select value={qualityMode} onValueChange={setQualityMode}>
+              <Select value={qualityMode} onValueChange={setQualityMode} disabled={videoModel === "minimax_h3"}>
                 <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.keys(QUALITY_PRESETS).map((value) => (
@@ -393,7 +400,7 @@ export default function GeneratePrivate() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="mt-1.5 text-xs text-muted-foreground">{selectedQuality.description}</p>
+              <p className="mt-1.5 text-xs text-muted-foreground">{videoModel === "minimax_h3" ? "Turbo LoRA generation uses its optimized 6-step pipeline." : selectedQuality.description}</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -456,7 +463,7 @@ export default function GeneratePrivate() {
             ) : (
               <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 gap-2">
                 {isGenerating ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> Generating with Wan 2.2...</>
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Generating with {videoModel === "minimax_h3" ? "MiniMax-H3" : "Wan 2.2"}...</>
                 ) : (
                   <><Sparkles className="w-5 h-5" /> Generate Video</>
                 )}
