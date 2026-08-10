@@ -16,14 +16,6 @@ function hasPlayableVideo(video) {
   return Boolean(video?.video_url && String(video.video_url).trim());
 }
 
-function getPoster(video) {
-  return video?.thumbnail_url || video?.reference_image_url || "";
-}
-
-function isLikelyVideoUrl(url) {
-  const cleanUrl = String(url || "").split("?")[0].toLowerCase();
-  return /\.(mp4|webm|mov|m4v)$/.test(cleanUrl);
-}
 
 function getDisplayDuration(duration) {
   const seconds = parseInt(String(duration || "4s"), 10);
