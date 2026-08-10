@@ -46,16 +46,16 @@ function findMediaUrl(value: unknown): string | null {
 }
 
 async function saveVideo(base44: ReturnType<typeof createClientFromRequest>, sourceUrl: string, token?: string) {
-  const headers = token ? { Authorization: \`Bearer \${token}\` } : undefined;
+  const headers = token ? { Authorization: "Bearer " + token } : undefined;
   const response = await fetch(sourceUrl, { headers });
-  if (!response.ok) throw new Error(\`Hugging Face returned a video URL that could not be downloaded (\${response.status}).\`);
+  if (!response.ok) throw new Error("Hugging Face returned a video URL that could not be downloaded (" + response.status + ").");
 
   const blob = await response.blob();
   if (!blob.size) throw new Error("Hugging Face returned an empty video.");
   if (blob.size > MAX_VIDEO_BYTES) throw new Error("The generated video exceeded the 250 MB storage limit.");
 
   const extension = blob.type.includes("webm") ? "webm" : blob.type.includes("quicktime") ? "mov" : "mp4";
-  const file = new File([blob], \`hugging-face-video-\${Date.now()}.\${extension}\`, {
+  const file = new File([blob], "hugging-face-video-" + Date.now() + "." + extension, {
     type: blob.type || "video/mp4",
   });
   const uploaded = await base44.asServiceRole.integrations.Core.UploadFile({ file });
