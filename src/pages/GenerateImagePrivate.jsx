@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
 const SIZE_BY_ASPECT_RATIO = {
@@ -47,6 +48,7 @@ export default function GenerateImagePrivate() {
   const [prompt, setPrompt] = useState(() => new URLSearchParams(window.location.search).get("prompt") || "");
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [selectedStyleId, setSelectedStyleId] = useState("none");
+  const [nsfw, setNsfw] = useState(false);
   const [steps, setSteps] = useState("4");
   const [seed, setSeed] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -134,6 +136,7 @@ export default function GenerateImagePrivate() {
         height: size.height,
         steps: selectedSteps,
         seed: Number.isFinite(seedValue) ? seedValue : undefined,
+        nsfw,
       };
 
       const imageOwnerFields = {
@@ -160,7 +163,8 @@ export default function GenerateImagePrivate() {
         generation_payload_debug: JSON.stringify({
           route: "huggingFaceImage",
           provider: "huggingface-space",
-          space: "black-forest-labs/FLUX.1-schnell",
+          space: nsfw ? "IbarakiDouji/WAI-NSFW-illustrious-SDXL" : "black-forest-labs/FLUX.1-schnell",
+          model: nsfw ? "WAI NSFW illustrious SDXL v17" : "FLUX.1 Schnell",
           selected_style: selectedStyle.label,
           payload,
         }),
@@ -187,7 +191,7 @@ export default function GenerateImagePrivate() {
 
       await base44.entities.GeneratedImage.update(newRecord.id, completedRecord);
       rememberLocalOwnedImageId(newRecord.id, ownerFields.owner_user_id, ownerFields.owner_email);
-      setGeneratedItem({ ...newRecord, ...completedRecord });
+      setGeneratedItem({ ...newRecord, ...completedRecord, _engineLabel: imageResult.model });
       window.setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
     } catch (error) {
       const message = getGenerationErrorMessage(error);
@@ -216,7 +220,7 @@ export default function GenerateImagePrivate() {
           </Badge>
           <h1 className="text-4xl font-bold mb-3">Generate Image</h1>
           <p className="text-background/70 max-w-xl mx-auto">
-            Create high-quality images with FLUX.1 Schnell and save them privately to your account.
+            Create high-quality images with Hugging Face Spaces and save them privately to your account.
           </p>
         </div>
 
@@ -249,6 +253,11 @@ export default function GenerateImagePrivate() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="sm:col-span-3 flex items-center justify-between rounded-lg border border-background/10 bg-black/25 px-3 py-3">
+              <Label htmlFor="nsfw-mode" className="text-sm font-medium text-background">NSFW</Label>
+              <Switch id="nsfw-mode" checked={nsfw} onCheckedChange={setNsfw} />
             </div>
 
             <div>
@@ -321,7 +330,7 @@ export default function GenerateImagePrivate() {
             ) : (
               <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 gap-2">
                 {isGenerating ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> Generating with FLUX...</>
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Generating with {nsfw ? "WAI NSFW" : "FLUX"}...</>
                 ) : (
                   <><Sparkles className="w-5 h-5" /> Generate Image</>
                 )}
@@ -334,7 +343,7 @@ export default function GenerateImagePrivate() {
           <div className="flex items-center justify-between px-5 py-4 border-b border-background/10">
             <span className="text-sm font-semibold flex items-center gap-2"><ImageIcon className="w-4 h-4 text-primary" /> Output</span>
             <div className="flex items-center gap-2">
-              {generatedItem?.image_url && <Badge className="bg-purple-500/20 text-purple-100 border-purple-400/20">FLUX.1 Schnell</Badge>}
+              {generatedItem?.image_url && <Badge className="bg-purple-500/20 text-purple-100 border-purple-400/20">{generatedItem._engineLabel || "Hugging Face"}</Badge>}
               {generatedItem?.image_url && <Badge className="bg-green-500/20 text-green-100 border-green-400/20">Completed</Badge>}
               {isGenerating && <Badge className="bg-blue-500/20 text-blue-100 border-blue-400/20 animate-pulse">Generating...</Badge>}
             </div>

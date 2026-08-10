@@ -4,6 +4,8 @@ import { Client } from "npm:@gradio/client";
 
 const DEFAULT_SPACE = "black-forest-labs/FLUX.1-schnell";
 const DEFAULT_API_NAME = "/infer";
+const NSFW_SPACE = "IbarakiDouji/WAI-NSFW-illustrious-SDXL";
+const NSFW_API_NAME = "/generate";
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 
 function clampInteger(value: unknown, minimum: number, maximum: number, fallback: number) {
@@ -61,6 +63,7 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const input = await req.json().catch(() => ({}));
+    const nsfw = input?.nsfw === true;
     const prompt = String(input?.prompt || "").trim();
     if (!prompt) return Response.json({ success: false, error: "Prompt is required." }, { status: 400 });
     if (prompt.length > 4000) return Response.json({ success: false, error: "Prompt must be 4,000 characters or fewer." }, { status: 400 });
@@ -70,12 +73,27 @@ Deno.serve(async (req) => {
     const steps = clampInteger(input?.steps, 1, 12, 4);
     const hasSeed = Number.isInteger(Number(input?.seed)) && Number(input?.seed) >= 0;
     const seed = hasSeed ? clampInteger(input.seed, 0, 2147483647, 0) : 0;
-    const space = DEFAULT_SPACE;
-    const apiName = DEFAULT_API_NAME;
+    const space = nsfw ? NSFW_SPACE : DEFAULT_SPACE;
+    const apiName = nsfw ? NSFW_API_NAME : DEFAULT_API_NAME;
     const token = secrets.get("HUGGINGFACE_API_KEY") || undefined;
 
     const client = await Client.connect(space, token ? { token } : {});
-    const prediction = await client.predict(apiName, [
+    const prediction = await client.predict(apiName, nsfw ? [
+      prompt,
+      "bad quality, worst quality, worst detail, sketch, censor, watermark",
+      seed,
+      width,
+      height,
+      7,
+      steps,
+      "Euler a",
+      "v17",
+      "Custom",
+      false,
+      0.55,
+      1.5,
+      true,
+    ] : [
       prompt,
       seed,
       !hasSeed,
@@ -92,7 +110,7 @@ Deno.serve(async (req) => {
       success: true,
       provider: "huggingface-space",
       space,
-      model: "FLUX.1 Schnell",
+      model: nsfw ? "WAI NSFW illustrious SDXL v17" : "FLUX.1 Schnell",
       image_url: storedUrl,
       thumbnail_url: storedUrl,
       source_image_url: sourceUrl,
