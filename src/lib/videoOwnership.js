@@ -78,12 +78,9 @@ export function rememberLocalOwnedImageId(imageId, ownerId, ownerEmail) {
   rememberLocalOwnedId(imageId, ownerId, ownerEmail, IMAGE_STORAGE_PREFIX);
 }
 
-export function belongsToCurrentUser(item, ownerId, ownerEmail, localOwnedIds = new Set()) {
+export function belongsToCurrentUser(item, ownerId, ownerEmail) {
   const expectedOwnerId = normalizeIdentity(ownerId);
   const expectedEmail = normalizeIdentity(ownerEmail);
-  const itemId = String(item?.id || "");
-
-  if (itemId && localOwnedIds.has(itemId)) return true;
 
   const candidateValues = [
     item?.owner_user_id,
